@@ -79,13 +79,14 @@ nav {
 }
 
 .logo {
-  font-size: clamp(2rem, 5vw, 3rem);
+  font-size: 1.6rem;
   font-weight: 800;
   background: linear-gradient(135deg, var(--pink-primary), var(--pink-secondary));
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
   letter-spacing: -0.5px;
+  white-space: nowrap;
 }
 
 .cart-icon {
@@ -528,6 +529,77 @@ nav {
 .detal-price {
   color: var(--text-dark);
   font-size: 1.1rem;
+}
+
+/* Per-product quantity counter */
+.product-qty-badge {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: var(--pink-primary);
+  color: white;
+  font-size: 1rem;
+  font-weight: 800;
+  min-width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 12px rgba(255, 117, 140, 0.5);
+  border: 2px solid white;
+  font-family: 'Outfit', sans-serif;
+  animation: popIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes popIn {
+  from { transform: scale(0); }
+  to { transform: scale(1); }
+}
+
+.qty-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  background: var(--accent-blush);
+  border-radius: 16px;
+  padding: 6px;
+}
+
+.qty-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
+  background: var(--pink-primary);
+  color: white;
+  font-size: 1.4rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  border: none;
+  transition: var(--transition-bounce);
+  line-height: 1;
+}
+
+.qty-btn:hover {
+  transform: scale(1.15);
+  box-shadow: 0 4px 12px rgba(255, 117, 140, 0.4);
+}
+
+.qty-btn.qty-minus {
+  background: var(--rose-gold);
+}
+
+.qty-display {
+  font-weight: 700;
+  font-family: 'Outfit', sans-serif;
+  font-size: 0.9rem;
+  color: var(--rose-gold);
+  flex: 1;
+  text-align: center;
 }
 
 .add-to-cart-btn {

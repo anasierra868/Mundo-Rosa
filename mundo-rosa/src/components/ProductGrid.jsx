@@ -3,21 +3,29 @@ import ProductCard from './ProductCard';
 
 function ProductGrid({ 
   products, 
+  cart,
   onAddToCart,
+  onRemoveOne,
   formatCurrency
 }) {
   return (
     <main className="container">
 
       <div className="catalog-grid">
-        {products.map(product => (
-          <ProductCard 
-            key={product.id} 
-            product={product} 
-            onAddToCart={onAddToCart}
-            formatCurrency={formatCurrency}
-          />
-        ))}
+        {products.map(product => {
+          const cartItem = cart.find(i => i.id === product.id);
+          const quantity = cartItem ? cartItem.quantity : 0;
+          return (
+            <ProductCard 
+              key={product.id} 
+              product={product}
+              quantity={quantity}
+              onAddToCart={onAddToCart}
+              onRemoveOne={onRemoveOne}
+              formatCurrency={formatCurrency}
+            />
+          );
+        })}
       </div>
       
       {products.length === 0 && (

@@ -1,10 +1,13 @@
 import React from 'react';
 
-function ProductCard({ product, onAddToCart, formatCurrency }) {
+function ProductCard({ product, quantity, onAddToCart, onRemoveOne, formatCurrency }) {
   return (
     <div className="product-card">
       <div className="product-image-container">
         <img src={product.image} alt={product.name} className="product-image" loading="lazy" />
+        {quantity > 0 && (
+          <div className="product-qty-badge">{quantity}</div>
+        )}
       </div>
       <div className="product-info">
         <h3>{product.name}</h3>
@@ -20,12 +23,20 @@ function ProductCard({ product, onAddToCart, formatCurrency }) {
           </div>
         </div>
 
-        <button 
-          className="add-to-cart-btn"
-          onClick={() => onAddToCart(product)}
-        >
-          ✨ Añadir al Pedido
-        </button>
+        {quantity > 0 ? (
+          <div className="qty-controls">
+            <button className="qty-btn qty-minus" onClick={() => onRemoveOne(product.id)}>−</button>
+            <span className="qty-display">{quantity} en pedido</span>
+            <button className="qty-btn qty-plus" onClick={() => onAddToCart(product)}>+</button>
+          </div>
+        ) : (
+          <button 
+            className="add-to-cart-btn"
+            onClick={() => onAddToCart(product)}
+          >
+            ✨ Añadir al Pedido
+          </button>
+        )}
       </div>
     </div>
   );

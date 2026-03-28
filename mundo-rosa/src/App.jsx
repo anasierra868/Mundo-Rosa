@@ -65,6 +65,14 @@ function App() {
     setCart(prev => prev.filter(item => item.id !== id));
   };
 
+  // Reduce quantity by 1; if it reaches 0, remove from cart
+  const removeOneFromCart = (id) => {
+    setCart(prev => prev
+      .map(item => item.id === id ? { ...item, quantity: item.quantity - 1 } : item)
+      .filter(item => item.quantity > 0)
+    );
+  };
+
 
 
   const cartTotal = cart.reduce((acc, item) => acc + (item.price * item.quantity), 0);
@@ -106,7 +114,9 @@ function App() {
 
       <ProductGrid 
         products={products}
+        cart={cart}
         onAddToCart={addToCart}
+        onRemoveOne={removeOneFromCart}
         formatCurrency={formatCurrency}
       />
 
