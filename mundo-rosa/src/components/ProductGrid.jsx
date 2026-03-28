@@ -3,24 +3,11 @@ import ProductCard from './ProductCard';
 
 function ProductGrid({ 
   products, 
-  searchTerm, 
-  onSearchChange, 
   onAddToCart,
   formatCurrency
 }) {
   return (
     <main className="container">
-      <div className="controls-container">
-        <div className="search-bar">
-          <span className="search-icon">🔍</span>
-          <input 
-            type="text" 
-            placeholder="Buscar productos, colores o estilos..." 
-            value={searchTerm}
-            onChange={(e) => onSearchChange(e.target.value)}
-          />
-        </div>
-      </div>
 
       <div className="catalog-grid">
         {products.map(product => (

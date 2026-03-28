@@ -12,7 +12,6 @@ function App() {
   const [products, setProducts] = useState([]);
   const [cart, setCart] = useState([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
-  const [searchTerm, setSearchTerm] = useState('');
   const [firebaseConfig, setFirebaseConfig] = useState(localStorage.getItem('FIREBASE_CONFIG') || '');
 
   useEffect(() => {
@@ -47,13 +46,6 @@ function App() {
         setProducts([]);
       });
   };
-
-  const filteredProducts = useMemo(() => {
-    return products.filter(product => 
-      product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (product.tags && product.tags.toLowerCase().includes(searchTerm.toLowerCase()))
-    );
-  }, [products, searchTerm]);
 
   const addToCart = (product, quantity = 1) => {
     setCart(prev => {
@@ -113,9 +105,7 @@ function App() {
       <Hero />
 
       <ProductGrid 
-        products={filteredProducts}
-        searchTerm={searchTerm}
-        onSearchChange={setSearchTerm}
+        products={products}
         onAddToCart={addToCart}
         formatCurrency={formatCurrency}
       />
