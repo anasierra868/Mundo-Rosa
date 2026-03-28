@@ -416,6 +416,105 @@ nav {
   to { transform: rotate(360deg); }
 }
 
+/* Category Navigation Bar */
+.category-nav-wrapper {
+  position: sticky;
+  top: 80px; /* Under the main header */
+  z-index: 900;
+  background: var(--glass-bg);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--glass-border);
+  margin-top: -20px;
+  padding: 12px 0;
+  transition: var(--transition-smooth);
+}
+
+.category-nav {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  padding: 4px 24px;
+}
+
+.category-nav::-webkit-scrollbar {
+  display: none;
+}
+
+.category-tab {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--white);
+  border: 1px solid var(--accent-blush);
+  padding: 8px 16px;
+  border-radius: 100px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-dark);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: var(--transition-bounce);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+  flex-shrink: 0;
+}
+
+.category-tab:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 15px rgba(255, 117, 140, 0.15);
+  border-color: var(--pink-primary);
+}
+
+.tab-icon {
+  font-size: 1.1rem;
+}
+
+/* Category Sections */
+.category-section {
+  padding-top: 100px; 
+  margin-top: -60px;
+  margin-bottom: 60px;
+}
+
+.category-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 30px;
+  padding-bottom: 15px;
+  border-bottom: 2px dashed var(--accent-blush);
+}
+
+.category-icon-bg {
+  width: 50px;
+  height: 50px;
+  background: var(--pink-gradient);
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.6rem;
+  color: white;
+  box-shadow: 0 10px 20px rgba(255, 117, 140, 0.3);
+}
+
+.category-header h2 {
+  font-size: 1.8rem;
+  font-weight: 800;
+  color: var(--text-dark);
+  letter-spacing: -0.5px;
+  margin-bottom: 4px;
+}
+
+.category-line {
+  width: 60px;
+  height: 4px;
+  background: var(--pink-primary);
+  border-radius: 2px;
+}
+
 /* Product Cards */
 .catalog-grid {
   display: grid;
