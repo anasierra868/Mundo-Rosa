@@ -19,32 +19,52 @@ function CartModal({ cart, isOpen, onClose, onCheckout, onRemoveItem, formatCurr
     const fallbackText = `💖 PEDIDO - MUNDO ROSA 💖\n----------------------------------\n\n${itemsText}\n\n----------------------------------\n💰 TOTAL A PAGAR: ${formatCurrency(cartTotal)}\n⚠️ La cotización está sujeta a verificación por parte de nuestras asesoras.`;
 
     try {
+      // Escala dinámica: calidad regular para móviles (más rápido), retina para PC
+      const isMobile = window.innerWidth <= 600;
+      const captureScale = isMobile ? 1 : 2;
+
       // Tomar una foto del contenedor del carrito
       const canvas = await html2canvas(cartRef.current, { 
         useCORS: true, 
-        scale: 2,           // Mejor calidad
+        scale: captureScale, 
         backgroundColor: '#ffffff' 
       });
 
       canvas.toBlob(async (blob) => {
         try {
-          if (navigator.clipboard && window.ClipboardItem && blob) {
+          if (!blob) throw new Error("Error procesando imagen");
+
+          // 1. Prioridad: "Web Share API" nativo celular
+          const file = new File([blob], 'Mi_Pedido_Mundo_Rosa.png', { type: 'image/png' });
+          if (navigator.canShare && navigator.canShare({ files: [file] })) {
+            await navigator.share({
+              files: [file],
+              title: 'Cotización Mundo Rosa',
+              text: '💖 Hola, quiero verificar este pedido con ustedes:'
+            });
+            onCheckout(); // Reinicia el carrito
+            return;
+          }
+
+          // 2. Respaldo Desktop: Usar API del Portapapeles Web
+          if (navigator.clipboard && window.ClipboardItem) {
             await navigator.clipboard.write([
               new window.ClipboardItem({ 'image/png': blob })
             ]);
             setCopied(true);
-            // Ejecutar la limpieza del carrito luego del exito
             setTimeout(() => {
               setCopied(false);
               onCheckout(); 
             }, 3000);
-          } else {
-            throw new Error("Clipboard API (Image) not supported");
+            return;
           }
+
+          throw new Error("Ni Web Share ni Clipboard soportados en este navegador");
+
         } catch(err) {
-          console.error("Error copiando imagen al portapapeles:", err);
-          // Fallback al texto normal
-          navigator.clipboard.writeText(fallbackText);
+          console.error("Error al exportar imagen:", err);
+          // 3. Fallback a texto
+          navigator.clipboard.writeText(fallbackText).catch(()=>{});
           onCheckout();
         } finally {
           setIsGenerating(false);
@@ -120,8 +140,8 @@ function CartModal({ cart, isOpen, onClose, onCheckout, onRemoveItem, formatCurr
               onClick={handleCopy}
               disabled={isGenerating}
             >
-              {isGenerating ? '📸 Preparando Imagen...' : 
-               copied ? '✅ ¡Imagen Copiada! Abre WhatsApp y pega' : '📋 Copiar Imagen de Cotización'}
+              {isGenerating ? '📸 Procesando Imagen...' : 
+               copied ? '✅ ¡Listo! Pégalo en WhatsApp' : '📋 Compartir / Copiar Imagen'}
             </button>
             <button className="close-btn" style={{ position: 'absolute', top: '15px', right: '15px' }} onClick={onClose}>×</button>
 
