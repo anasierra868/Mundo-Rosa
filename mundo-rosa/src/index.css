@@ -79,18 +79,13 @@ nav {
 }
 
 .logo {
-  font-size: 2rem;
+  font-size: clamp(2rem, 5vw, 3rem);
   font-weight: 800;
   background: linear-gradient(135deg, var(--pink-primary), var(--pink-secondary));
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
   letter-spacing: -0.5px;
-}
-
-.logo span {
-  font-weight: 300;
-  opacity: 0.8;
 }
 
 .cart-icon {
