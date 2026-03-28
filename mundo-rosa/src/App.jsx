@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { db, isConfigured } from './firebase';
 import { collection, onSnapshot, query } from 'firebase/firestore';
 
@@ -7,12 +7,18 @@ import Header from './components/Header';
 import Hero from './components/Hero';
 import ProductGrid from './components/ProductGrid';
 import CartModal from './components/CartModal';
+import PricingModal from './components/PricingModal';
 
 function App() {
   const [products, setProducts] = useState([]);
   const [cart, setCart] = useState([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [firebaseConfig, setFirebaseConfig] = useState(localStorage.getItem('FIREBASE_CONFIG') || '');
+
+  // Pricing flow state
+  const [priceType, setPriceType] = useState(null); // null = not yet chosen
+  const [isPricingModalOpen, setIsPricingModalOpen] = useState(false);
+  const [pendingProduct, setPendingProduct] = useState(null); // product waiting for price decision
 
   useEffect(() => {
     if (isConfigured && db) {
@@ -47,14 +53,38 @@ function App() {
       });
   };
 
-  const addToCart = (product, quantity = 1) => {
+  // Called when product card "+ / Añadir al Pedido" is clicked
+  const handleAddToCart = (product, quantity = 1) => {
+    if (priceType === null) {
+      // First product: show pricing modal, save pending product
+      setPendingProduct({ product, quantity });
+      setIsPricingModalOpen(true);
+    } else {
+      // Price already chosen: add directly
+      commitToCart(product, quantity, priceType);
+    }
+  };
+
+  // Called when user selects a price type in the modal
+  const handlePriceTypeSelect = (type) => {
+    setPriceType(type);
+    setIsPricingModalOpen(false);
+    if (pendingProduct) {
+      commitToCart(pendingProduct.product, pendingProduct.quantity, type);
+      setPendingProduct(null);
+    }
+  };
+
+  const commitToCart = (product, quantity, type) => {
     setCart(prev => {
       const existing = prev.find(item => item.id === product.id);
-      const priceToUse = product.mayor;
-      
+      const priceToUse = type === 'mayor' ? product.mayor : product.detal;
+
       if (existing) {
-        return prev.map(item => 
-          item.id === product.id ? { ...item, quantity: item.quantity + quantity, price: priceToUse } : item
+        return prev.map(item =>
+          item.id === product.id
+            ? { ...item, quantity: item.quantity + quantity, price: priceToUse }
+            : item
         );
       }
       return [...prev, { ...product, quantity, price: priceToUse }];
@@ -73,8 +103,6 @@ function App() {
     );
   };
 
-
-
   const cartTotal = cart.reduce((acc, item) => acc + (item.price * item.quantity), 0);
 
   const formatCurrency = (amount) => {
@@ -86,41 +114,53 @@ function App() {
   };
 
   const sendWhatsApp = () => {
-    const phone = "573136272551"; 
-    const itemsText = cart.map(item => 
+    const phone = "573136272551";
+    const tipoLabel = priceType === 'mayor' ? 'Por Mayor' : 'Al Detal';
+    const itemsText = cart.map(item =>
       `*${item.quantity}x* ${item.name}\n   _Subtotal: ${formatCurrency(item.price * item.quantity)}_`
     ).join('\n\n');
 
     const message = encodeURIComponent(
-      `💖 *NUEVOPEDIDO - MUNDO ROSA* 💖\n` +
+      `💖 *NUEVO PEDIDO - MUNDO ROSA* 💖\n` +
       `----------------------------------\n\n` +
       itemsText +
       `\n\n----------------------------------\n` +
       `💰 *TOTAL A PAGAR: ${formatCurrency(cartTotal)}*\n\n` +
-      `Tipo de precio: _Por Mayor_`
+      `Tipo de precio: _${tipoLabel}_`
     );
     window.open(`https://wa.me/${phone}?text=${message}`, '_blank');
+
+    // Reset pricing for new quote
+    setCart([]);
+    setPriceType(null);
+    setIsCartOpen(false);
   };
 
   return (
     <div className="app">
-      <Header 
-        cartCount={cart.reduce((a, b) => a + b.quantity, 0)} 
-        onCartOpen={() => setIsCartOpen(true)} 
-        isConfigured={isConfigured} 
+      <Header
+        cartCount={cart.reduce((a, b) => a + b.quantity, 0)}
+        onCartOpen={() => setIsCartOpen(true)}
+        isConfigured={isConfigured}
       />
 
       <Hero />
 
-      <ProductGrid 
+      <ProductGrid
         products={products}
         cart={cart}
-        onAddToCart={addToCart}
+        onAddToCart={handleAddToCart}
         onRemoveOne={removeOneFromCart}
         formatCurrency={formatCurrency}
       />
 
-      <CartModal 
+      <PricingModal
+        isOpen={isPricingModalOpen}
+        onSelectMayor={() => handlePriceTypeSelect('mayor')}
+        onSelectDetal={() => handlePriceTypeSelect('detal')}
+      />
+
+      <CartModal
         cart={cart}
         isOpen={isCartOpen}
         onClose={() => setIsCartOpen(false)}

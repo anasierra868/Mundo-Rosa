@@ -760,6 +760,133 @@ nav {
   border-radius: 10px;
 }
 
+/* Pricing Modal */
+.pricing-modal-overlay {
+  justify-content: center;
+  align-items: center;
+}
+
+.pricing-modal {
+  background: var(--white);
+  border-radius: 28px;
+  padding: 36px 32px 28px;
+  max-width: 480px;
+  width: 90%;
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.2);
+  animation: slideUp 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(40px) scale(0.96); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.pricing-modal-header {
+  text-align: center;
+}
+
+.pricing-modal-icon {
+  font-size: 2.5rem;
+  display: block;
+  margin-bottom: 8px;
+}
+
+.pricing-modal-header h2 {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: var(--text-dark);
+  margin-bottom: 6px;
+}
+
+.pricing-modal-header p {
+  font-size: 0.95rem;
+  color: var(--text-light);
+}
+
+.pricing-modal-options {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.pricing-question {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  background: #FFF5F8;
+  border: 1.5px solid var(--accent-blush);
+  border-radius: 16px;
+  padding: 14px 16px;
+}
+
+.pricing-question span {
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--text-dark);
+  flex: 1;
+  line-height: 1.4;
+}
+
+.pricing-yes-btn {
+  background: var(--pink-gradient);
+  color: white;
+  font-weight: 800;
+  font-size: 0.95rem;
+  padding: 10px 22px;
+  border-radius: 12px;
+  border: none;
+  cursor: pointer;
+  transition: var(--transition-bounce);
+  white-space: nowrap;
+  box-shadow: 0 4px 12px rgba(255, 117, 140, 0.3);
+  flex-shrink: 0;
+}
+
+.pricing-yes-btn:hover {
+  transform: scale(1.08);
+  box-shadow: 0 8px 20px rgba(255, 117, 140, 0.4);
+}
+
+.pricing-divider {
+  text-align: center;
+  font-size: 0.85rem;
+  color: var(--text-light);
+  font-weight: 600;
+}
+
+.pricing-none-btn {
+  width: 100%;
+  padding: 14px;
+  background: #F3F4F6;
+  color: var(--text-dark);
+  font-weight: 700;
+  font-size: 0.95rem;
+  border-radius: 14px;
+  border: 2px solid #E5E7EB;
+  cursor: pointer;
+  transition: var(--transition-smooth);
+  margin-top: 4px;
+}
+
+.pricing-none-btn:hover {
+  background: #E5E7EB;
+  border-color: #D1D5DB;
+}
+
+.pricing-modal-note {
+  font-size: 0.78rem;
+  color: var(--text-light);
+  text-align: center;
+  line-height: 1.5;
+  border-top: 1px solid #F3F4F6;
+  padding-top: 14px;
+  font-style: italic;
+}
+
 /* Footer */
 footer {
   padding: 60px 0;
