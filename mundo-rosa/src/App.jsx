@@ -152,6 +152,7 @@ function App() {
         onCheckout={handleCheckoutSuccess}
         formatCurrency={formatCurrency}
         cartTotal={cartTotal}
+        priceType={priceType}
       />
 
       <footer>

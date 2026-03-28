@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import html2canvas from 'html2canvas';
 
-function CartModal({ cart, isOpen, onClose, onCheckout, onRemoveItem, formatCurrency, cartTotal }) {
+function CartModal({ cart, isOpen, onClose, onCheckout, onRemoveItem, formatCurrency, cartTotal, priceType }) {
   const [copied, setCopied] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const cartRef = useRef(null);
@@ -104,6 +104,9 @@ function CartModal({ cart, isOpen, onClose, onCheckout, onRemoveItem, formatCurr
               <div className="cart-total" style={{ display: 'flex', justifyContent: 'space-between', fontSize: '1.4rem', fontWeight: 'bold', color: '#ff758c' }}>
                 <span>Total</span>
                 <span>{formatCurrency(cartTotal)}</span>
+              </div>
+              <div style={{ textAlign: 'right', marginTop: '5px', fontSize: '0.9rem', color: '#666' }}>
+                Tipo de precio: <strong>{priceType === 'mayor' ? 'Por Mayor' : 'Al Detal'}</strong>
               </div>
             </div>
           )}
