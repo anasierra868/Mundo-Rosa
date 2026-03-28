@@ -7,17 +7,12 @@ import Header from './components/Header';
 import Hero from './components/Hero';
 import ProductGrid from './components/ProductGrid';
 import CartModal from './components/CartModal';
-import SettingsModal from './components/SettingsModal';
 
 function App() {
   const [products, setProducts] = useState([]);
   const [cart, setCart] = useState([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  const [priceType, setPriceType] = useState('mayor'); // 'mayor' or 'detal'
-  const [apiKey, setApiKey] = useState(localStorage.getItem('GEMINI_API_KEY') || '');
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [isApiModalOpen, setIsApiModalOpen] = useState(false);
   const [firebaseConfig, setFirebaseConfig] = useState(localStorage.getItem('FIREBASE_CONFIG') || '');
 
   useEffect(() => {
@@ -63,7 +58,7 @@ function App() {
   const addToCart = (product, quantity = 1) => {
     setCart(prev => {
       const existing = prev.find(item => item.id === product.id);
-      const priceToUse = priceType === 'mayor' ? product.mayor : product.detal;
+      const priceToUse = product.mayor;
       
       if (existing) {
         return prev.map(item => 
@@ -78,105 +73,19 @@ function App() {
     setCart(prev => prev.filter(item => item.id !== id));
   };
 
-  const processImageWithAI = async (base64Image) => {
-    if (!apiKey) {
-      setIsApiModalOpen(true);
-      return;
-    }
-    if (products.length === 0) {
-      alert("Cargando catálogo... intenta de nuevo en un momento.");
-      return;
-    }
-
-    setIsAnalyzing(true);
-    const catalogContext = products.map(p => `ID: ${p.id} | NOMBRE: ${p.name} | TAGS: ${p.tags || ''}`).join("\n");
-    
-    const prompt = `Analiza esta imagen de pedido. 
-    1. Identifica productos basándote en rasgos visuales.
-    2. Si hay números escritos, esa es la cantidad (por ejemplo "4" escrito sobre un producto).
-    3. Si no hay números claros, usa 1 por cada ítem marcado.
-    4. Match con este catálogo:
-    ${catalogContext}
-    Retorna ESTRICTAMENTE un arreglo JSON: [{"id": "...", "cantidad": ...}]. Sin texto adicional.`;
-
-    try {
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{
-            parts: [
-              { text: prompt },
-              { inline_data: { mime_type: "image/jpeg", data: base64Image.split(',')[1] } }
-            ]
-          }]
-        })
-      });
-      const data = await response.json();
-      const content = data.candidates[0].content.parts[0].text.replace(/```json/g, '').replace(/```/g, '').trim();
-      const detected = JSON.parse(content);
-      
-      if (Array.isArray(detected)) {
-        detected.forEach(item => {
-          const prod = products.find(p => p.id === item.id);
-          if (prod) {
-            addToCart(prod, parseInt(item.cantidad) || 1);
-          }
-        });
-        setIsCartOpen(true);
-      }
-    } catch (error) {
-      console.error("Error Gemini:", error);
-      alert("Error al analizar la imagen. Verifica tu API Key y conexión.");
-    } finally {
-      setIsAnalyzing(false);
-    }
-  };
-
-  const handleImageUpload = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = (ev) => processImageWithAI(ev.target.result);
-      reader.readAsDataURL(file);
-    }
-  };
-
-  useEffect(() => {
-    const handlePaste = async (e) => {
-      const items = Array.from(e.clipboardData.items);
-      const imageItems = items.filter(item => item.type.indexOf('image') !== -1);
-      if (imageItems.length > 0) {
-        const file = imageItems[0].getAsFile();
-        if (file) {
-          const reader = new FileReader();
-          reader.onload = (ev) => processImageWithAI(ev.target.result);
-          reader.readAsDataURL(file);
-        }
-      }
-    };
-    window.addEventListener('paste', handlePaste);
-    return () => window.removeEventListener('paste', handlePaste);
-  }, [apiKey, products, priceType]);
-
-  const saveSettings = (key, firebaseJson) => {
-    localStorage.setItem('GEMINI_API_KEY', key);
-    setApiKey(key);
-    
+  const saveSettings = (firebaseJson) => {
     if (firebaseJson) {
       try {
         JSON.parse(firebaseJson);
         localStorage.setItem('FIREBASE_CONFIG', firebaseJson);
         setFirebaseConfig(firebaseJson);
-        alert("Configuración guardada satisfactoriamente.");
+        alert("Configuración de Firebase guardada satisfactoriamente.");
         window.location.reload();
       } catch (e) {
         alert("El JSON de Firebase no es válido.");
         return;
       }
     }
-    setIsApiModalOpen(false);
   };
 
   const cartTotal = cart.reduce((acc, item) => acc + (item.price * item.quantity), 0);
@@ -201,7 +110,7 @@ function App() {
       itemsText +
       `\n\n----------------------------------\n` +
       `💰 *TOTAL A PAGAR: ${formatCurrency(cartTotal)}*\n\n` +
-      `Tipo de precio: _${priceType === 'mayor' ? 'Por Mayor' : 'Al Detal'}_`
+      `Tipo de precio: _Por Mayor_`
     );
     window.open(`https://wa.me/${phone}?text=${message}`, '_blank');
   };
@@ -220,21 +129,8 @@ function App() {
         products={filteredProducts}
         searchTerm={searchTerm}
         onSearchChange={setSearchTerm}
-        priceType={priceType}
-        onPriceTypeChange={setPriceType}
-        onImageUpload={handleImageUpload}
-        isAnalyzing={isAnalyzing}
-        onSettingsOpen={() => setIsApiModalOpen(true)}
         onAddToCart={addToCart}
         formatCurrency={formatCurrency}
-      />
-
-      <SettingsModal 
-        isOpen={isApiModalOpen}
-        onClose={() => setIsApiModalOpen(false)}
-        apiKey={apiKey}
-        firebaseConfig={firebaseConfig}
-        onSave={saveSettings}
       />
 
       <CartModal 

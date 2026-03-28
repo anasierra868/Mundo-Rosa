@@ -5,11 +5,6 @@ function ProductGrid({
   products, 
   searchTerm, 
   onSearchChange, 
-  priceType, 
-  onPriceTypeChange, 
-  onImageUpload, 
-  isAnalyzing, 
-  onSettingsOpen,
   onAddToCart,
   formatCurrency
 }) {
@@ -24,51 +19,6 @@ function ProductGrid({
             value={searchTerm}
             onChange={(e) => onSearchChange(e.target.value)}
           />
-        </div>
-        
-        <div className="action-group">
-          <div className="price-toggle-group">
-            <button 
-              className={`price-toggle-btn ${priceType === 'mayor' ? 'active' : ''}`}
-              onClick={() => onPriceTypeChange('mayor')}
-            >
-              Wholesale
-            </button>
-            <button 
-              className={`price-toggle-btn ${priceType === 'detal' ? 'active' : ''}`}
-              onClick={() => onPriceTypeChange('detal')}
-            >
-              Retail
-            </button>
-          </div>
-
-          <div className="ai-actions">
-            <input 
-              type="file" 
-              id="ai-upload" 
-              accept="image/*" 
-              onChange={onImageUpload} 
-              className="hidden-input" 
-            />
-            <button 
-              className={`ai-analyze-btn ${isAnalyzing ? 'loading' : ''}`}
-              onClick={() => document.getElementById('ai-upload').click()}
-              disabled={isAnalyzing}
-            >
-              {isAnalyzing ? (
-                <span className="spinner"></span>
-              ) : (
-                <>✨ Escanear Pedido</>
-              )}
-            </button>
-            <button 
-              className="api-key-btn" 
-              onClick={onSettingsOpen}
-              title="Configurar IA y Nube"
-            >
-              ⚙️
-            </button>
-          </div>
         </div>
       </div>
 
