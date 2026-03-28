@@ -113,32 +113,8 @@ function App() {
     }).format(amount || 0);
   };
 
-  const sendWhatsApp = () => {
-    const tipoLabel = priceType === 'mayor' ? 'Por Mayor' : 'Al Detal';
-    const itemsText = cart.map(item =>
-      `${item.quantity}x ${item.name} - Subtotal: ${formatCurrency(item.price * item.quantity)}`
-    ).join('\n');
-
-    const text =
-      `💖 PEDIDO - MUNDO ROSA 💖\n` +
-      `----------------------------------\n\n` +
-      itemsText +
-      `\n\n----------------------------------\n` +
-      `💰 TOTAL A PAGAR: ${formatCurrency(cartTotal)}\n` +
-      `Tipo de precio: ${tipoLabel}\n\n` +
-      `⚠️ La cotización está sujeta a verificación por parte de nuestras asesoras.`;
-
-    navigator.clipboard.writeText(text).catch(() => {
-      // Fallback: create a textarea and copy
-      const el = document.createElement('textarea');
-      el.value = text;
-      document.body.appendChild(el);
-      el.select();
-      document.execCommand('copy');
-      document.body.removeChild(el);
-    });
-
-    // Reset for next quote
+  const handleCheckoutSuccess = () => {
+    // Reset pricing for new quote
     setCart([]);
     setPriceType(null);
     setIsCartOpen(false);
@@ -173,7 +149,7 @@ function App() {
         isOpen={isCartOpen}
         onClose={() => setIsCartOpen(false)}
         onRemoveItem={removeFromCart}
-        onCheckout={sendWhatsApp}
+        onCheckout={handleCheckoutSuccess}
         formatCurrency={formatCurrency}
         cartTotal={cartTotal}
       />
