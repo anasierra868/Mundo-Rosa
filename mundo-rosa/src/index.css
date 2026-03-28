@@ -748,6 +748,26 @@ nav {
   box-shadow: 0 15px 30px rgba(37, 211, 102, 0.3);
 }
 
+.copy-quote-btn {
+  background: #1A1A2E;
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.15);
+}
+
+.copy-quote-btn:hover {
+  background: #16213E;
+  transform: translateY(-2px);
+  box-shadow: 0 15px 30px rgba(0, 0, 0, 0.2);
+}
+
+.copy-hint {
+  margin-top: 12px;
+  font-size: 0.82rem;
+  color: var(--text-light);
+  text-align: center;
+  line-height: 1.5;
+  animation: fadeIn 0.4s ease;
+}
+
 /* Scrollbar */
 ::-webkit-scrollbar {
   width: 6px;

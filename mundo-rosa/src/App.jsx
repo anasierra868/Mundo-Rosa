@@ -114,23 +114,31 @@ function App() {
   };
 
   const sendWhatsApp = () => {
-    const phone = "573136272551";
     const tipoLabel = priceType === 'mayor' ? 'Por Mayor' : 'Al Detal';
     const itemsText = cart.map(item =>
-      `*${item.quantity}x* ${item.name}\n   _Subtotal: ${formatCurrency(item.price * item.quantity)}_`
-    ).join('\n\n');
+      `${item.quantity}x ${item.name} - Subtotal: ${formatCurrency(item.price * item.quantity)}`
+    ).join('\n');
 
-    const message = encodeURIComponent(
-      `💖 *NUEVO PEDIDO - MUNDO ROSA* 💖\n` +
+    const text =
+      `💖 PEDIDO - MUNDO ROSA 💖\n` +
       `----------------------------------\n\n` +
       itemsText +
       `\n\n----------------------------------\n` +
-      `💰 *TOTAL A PAGAR: ${formatCurrency(cartTotal)}*\n\n` +
-      `Tipo de precio: _${tipoLabel}_`
-    );
-    window.open(`https://wa.me/${phone}?text=${message}`, '_blank');
+      `💰 TOTAL A PAGAR: ${formatCurrency(cartTotal)}\n` +
+      `Tipo de precio: ${tipoLabel}\n\n` +
+      `⚠️ La cotización está sujeta a verificación por parte de nuestras asesoras.`;
 
-    // Reset pricing for new quote
+    navigator.clipboard.writeText(text).catch(() => {
+      // Fallback: create a textarea and copy
+      const el = document.createElement('textarea');
+      el.value = text;
+      document.body.appendChild(el);
+      el.select();
+      document.execCommand('copy');
+      document.body.removeChild(el);
+    });
+
+    // Reset for next quote
     setCart([]);
     setPriceType(null);
     setIsCartOpen(false);
