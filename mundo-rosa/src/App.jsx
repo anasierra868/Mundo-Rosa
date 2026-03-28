@@ -114,10 +114,33 @@ function App() {
   };
 
   const handleCheckoutSuccess = () => {
-    // Reset pricing for new quote
-    setCart([]);
-    setPriceType(null);
-    setIsCartOpen(false);
+    const tipoLabel = priceType === 'mayor' ? 'Por Mayor' : 'Al Detal';
+    const itemsText = cart.map(item =>
+      `*${item.quantity}x* ${item.name}\n   _Subtotal: ${formatCurrency(item.price * item.quantity)}_`
+    ).join('\n\n');
+
+    const text =
+      `💖 *COTIZACIÓN - MUNDO ROSA* 💖\n` +
+      `----------------------------------\n\n` +
+      itemsText +
+      `\n\n----------------------------------\n` +
+      `💰 *TOTAL A PAGAR: ${formatCurrency(cartTotal)}*\n` +
+      `Tipo de precio: _${tipoLabel}_\n\n` +
+      `⚠️ _La cotización enviada estará sujeta a verificación por parte de nuestras asesoras._`;
+
+    // Copy to clipboard
+    navigator.clipboard.writeText(text).then(() => {
+      // Reset pricing for new quote
+      setCart([]);
+      setPriceType(null);
+      setIsCartOpen(false);
+    }).catch(err => {
+      console.error('Error copying text:', err);
+      // Fallback: Just reset if copy fails (unlikely)
+      setCart([]);
+      setPriceType(null);
+      setIsCartOpen(false);
+    });
   };
 
   return (
