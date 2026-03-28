@@ -1,26 +1,76 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { db, isConfigured } from './firebase';
+import { collection, onSnapshot, query } from 'firebase/firestore';
+
+// Components
+import Header from './components/Header';
+import Hero from './components/Hero';
+import ProductGrid from './components/ProductGrid';
+import CartModal from './components/CartModal';
+import SettingsModal from './components/SettingsModal';
 
 function App() {
   const [products, setProducts] = useState([]);
   const [cart, setCart] = useState([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [priceType, setPriceType] = useState('mayor'); // 'mayor' or 'detal'
+  const [apiKey, setApiKey] = useState(localStorage.getItem('GEMINI_API_KEY') || '');
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [isApiModalOpen, setIsApiModalOpen] = useState(false);
+  const [firebaseConfig, setFirebaseConfig] = useState(localStorage.getItem('FIREBASE_CONFIG') || '');
 
   useEffect(() => {
-    fetch('/catalog.json')
-      .then(res => res.json())
-      .then(data => setProducts(data))
-      .catch(err => console.error("Error loading catalog:", err));
+    if (isConfigured && db) {
+      console.log("☁️ Cargando catálogo desde Firestore...");
+      const q = query(collection(db, "products"));
+      const unsubscribe = onSnapshot(q, (querySnapshot) => {
+        const productArray = [];
+        querySnapshot.forEach((doc) => {
+          productArray.push({ id: doc.id, ...doc.data() });
+        });
+        setProducts(productArray);
+      }, (error) => {
+        console.error("Error subscribiendo a Firestore:", error);
+        fetchLocalCatalog();
+      });
+      return () => unsubscribe();
+    } else {
+      fetchLocalCatalog();
+    }
   }, []);
 
-  const addToCart = (product) => {
+  const fetchLocalCatalog = () => {
+    console.log("📂 Cargando catálogo local (JSON)...");
+    fetch(`${import.meta.env.BASE_URL}catalog.json`)
+      .then(res => res.json())
+      .then(data => {
+        setProducts(Array.isArray(data) ? data : []);
+      })
+      .catch(err => {
+        console.error("Error loading catalog:", err);
+        setProducts([]);
+      });
+  };
+
+  const filteredProducts = useMemo(() => {
+    return products.filter(product => 
+      product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (product.tags && product.tags.toLowerCase().includes(searchTerm.toLowerCase()))
+    );
+  }, [products, searchTerm]);
+
+  const addToCart = (product, quantity = 1) => {
     setCart(prev => {
       const existing = prev.find(item => item.id === product.id);
+      const priceToUse = priceType === 'mayor' ? product.mayor : product.detal;
+      
       if (existing) {
         return prev.map(item => 
-          item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item
+          item.id === product.id ? { ...item, quantity: item.quantity + quantity, price: priceToUse } : item
         );
       }
-      return [...prev, { ...product, quantity: 1 }];
+      return [...prev, { ...product, quantity, price: priceToUse }];
     });
   };
 
@@ -28,104 +78,179 @@ function App() {
     setCart(prev => prev.filter(item => item.id !== id));
   };
 
-  const total = cart.reduce((acc, item) => acc + (item.price * item.quantity), 0);
+  const processImageWithAI = async (base64Image) => {
+    if (!apiKey) {
+      setIsApiModalOpen(true);
+      return;
+    }
+    if (products.length === 0) {
+      alert("Cargando catálogo... intenta de nuevo en un momento.");
+      return;
+    }
+
+    setIsAnalyzing(true);
+    const catalogContext = products.map(p => `ID: ${p.id} | NOMBRE: ${p.name} | TAGS: ${p.tags || ''}`).join("\n");
+    
+    const prompt = `Analiza esta imagen de pedido. 
+    1. Identifica productos basándote en rasgos visuales.
+    2. Si hay números escritos, esa es la cantidad (por ejemplo "4" escrito sobre un producto).
+    3. Si no hay números claros, usa 1 por cada ítem marcado.
+    4. Match con este catálogo:
+    ${catalogContext}
+    Retorna ESTRICTAMENTE un arreglo JSON: [{"id": "...", "cantidad": ...}]. Sin texto adicional.`;
+
+    try {
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{
+            parts: [
+              { text: prompt },
+              { inline_data: { mime_type: "image/jpeg", data: base64Image.split(',')[1] } }
+            ]
+          }]
+        })
+      });
+      const data = await response.json();
+      const content = data.candidates[0].content.parts[0].text.replace(/```json/g, '').replace(/```/g, '').trim();
+      const detected = JSON.parse(content);
+      
+      if (Array.isArray(detected)) {
+        detected.forEach(item => {
+          const prod = products.find(p => p.id === item.id);
+          if (prod) {
+            addToCart(prod, parseInt(item.cantidad) || 1);
+          }
+        });
+        setIsCartOpen(true);
+      }
+    } catch (error) {
+      console.error("Error Gemini:", error);
+      alert("Error al analizar la imagen. Verifica tu API Key y conexión.");
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
+
+  const handleImageUpload = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (ev) => processImageWithAI(ev.target.result);
+      reader.readAsDataURL(file);
+    }
+  };
+
+  useEffect(() => {
+    const handlePaste = async (e) => {
+      const items = Array.from(e.clipboardData.items);
+      const imageItems = items.filter(item => item.type.indexOf('image') !== -1);
+      if (imageItems.length > 0) {
+        const file = imageItems[0].getAsFile();
+        if (file) {
+          const reader = new FileReader();
+          reader.onload = (ev) => processImageWithAI(ev.target.result);
+          reader.readAsDataURL(file);
+        }
+      }
+    };
+    window.addEventListener('paste', handlePaste);
+    return () => window.removeEventListener('paste', handlePaste);
+  }, [apiKey, products, priceType]);
+
+  const saveSettings = (key, firebaseJson) => {
+    localStorage.setItem('GEMINI_API_KEY', key);
+    setApiKey(key);
+    
+    if (firebaseJson) {
+      try {
+        JSON.parse(firebaseJson);
+        localStorage.setItem('FIREBASE_CONFIG', firebaseJson);
+        setFirebaseConfig(firebaseJson);
+        alert("Configuración guardada satisfactoriamente.");
+        window.location.reload();
+      } catch (e) {
+        alert("El JSON de Firebase no es válido.");
+        return;
+      }
+    }
+    setIsApiModalOpen(false);
+  };
+
+  const cartTotal = cart.reduce((acc, item) => acc + (item.price * item.quantity), 0);
 
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat('es-CO', {
       style: 'currency',
       currency: 'COP',
       minimumFractionDigits: 0
-    }).format(amount);
+    }).format(amount || 0);
   };
 
   const sendWhatsApp = () => {
-    const phone = "573000000000"; // Reemplazar con el número real
+    const phone = "573136272551"; 
+    const itemsText = cart.map(item => 
+      `*${item.quantity}x* ${item.name}\n   _Subtotal: ${formatCurrency(item.price * item.quantity)}_`
+    ).join('\n\n');
+
     const message = encodeURIComponent(
-      `¡Hola! Me gustaría realizar el siguiente pedido en MUNDO ROSA:\n\n` +
-      cart.map(item => `- ${item.name} (${item.quantity}x) - ${formatCurrency(item.price * item.quantity)}`).join('\n') +
-      `\n\n*Total: ${formatCurrency(total)}*`
+      `💖 *NUEVOPEDIDO - MUNDO ROSA* 💖\n` +
+      `----------------------------------\n\n` +
+      itemsText +
+      `\n\n----------------------------------\n` +
+      `💰 *TOTAL A PAGAR: ${formatCurrency(cartTotal)}*\n\n` +
+      `Tipo de precio: _${priceType === 'mayor' ? 'Por Mayor' : 'Al Detal'}_`
     );
     window.open(`https://wa.me/${phone}?text=${message}`, '_blank');
   };
 
   return (
     <div className="app">
-      <header>
+      <Header 
+        cartCount={cart.reduce((a, b) => a + b.quantity, 0)} 
+        onCartOpen={() => setIsCartOpen(true)} 
+        isConfigured={isConfigured} 
+      />
+
+      <Hero />
+
+      <ProductGrid 
+        products={filteredProducts}
+        searchTerm={searchTerm}
+        onSearchChange={setSearchTerm}
+        priceType={priceType}
+        onPriceTypeChange={setPriceType}
+        onImageUpload={handleImageUpload}
+        isAnalyzing={isAnalyzing}
+        onSettingsOpen={() => setIsApiModalOpen(true)}
+        onAddToCart={addToCart}
+        formatCurrency={formatCurrency}
+      />
+
+      <SettingsModal 
+        isOpen={isApiModalOpen}
+        onClose={() => setIsApiModalOpen(false)}
+        apiKey={apiKey}
+        firebaseConfig={firebaseConfig}
+        onSave={saveSettings}
+      />
+
+      <CartModal 
+        cart={cart}
+        isOpen={isCartOpen}
+        onClose={() => setIsCartOpen(false)}
+        onRemoveItem={removeFromCart}
+        onCheckout={sendWhatsApp}
+        formatCurrency={formatCurrency}
+        cartTotal={cartTotal}
+      />
+
+      <footer>
         <div className="container">
-          <nav>
-            <div className="logo">MUNDO<span>ROSA</span></div>
-            <button className="cart-icon" onClick={() => setIsCartOpen(true)}>
-              🛒 {cart.length > 0 && <span className="cart-count">{cart.reduce((a, b) => a + b.quantity, 0)}</span>}
-            </button>
-          </nav>
+          <p>&copy; {new Date().getFullYear()} MUNDO ROSA - Hecho con amor 💖</p>
         </div>
-      </header>
-
-      <section className="hero">
-        <div className="container">
-          <h1>Detalles que Enamoran</h1>
-          <p>Encuentra el regalo perfecto con la elegancia que solo MUNDO ROSA puede ofrecer.</p>
-        </div>
-      </section>
-
-      <main className="container catalog-section">
-        <div className="catalog-grid">
-          {products.map(product => (
-            <div key={product.id} className="product-card">
-              <img src={product.image} alt={product.name} className="product-image" />
-              <div className="product-info">
-                <h3>{product.name}</h3>
-                <p className="product-price">{formatCurrency(product.price)}</p>
-                <button 
-                  className="add-to-cart-btn"
-                  onClick={() => addToCart(product)}
-                >
-                  Añadir al Carrito
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
-      </main>
-
-      {isCartOpen && (
-        <div className="modal-overlay" onClick={() => setIsCartOpen(false)}>
-          <div className="modal-content" onClick={e => e.stopPropagation()}>
-            <button className="close-btn" onClick={() => setIsCartOpen(false)}>×</button>
-            <h2>Tu Pedido</h2>
-            <div className="cart-items">
-              {cart.length === 0 ? (
-                <p>El carrito está vacío.</p>
-              ) : (
-                cart.map(item => (
-                  <div key={item.id} className="cart-item">
-                    <div>
-                      <strong>{item.name}</strong>
-                      <br />
-                      <small>{item.quantity} x {formatCurrency(item.price)}</small>
-                    </div>
-                    <button onClick={() => removeFromCart(item.id)} style={{color: 'red', background: 'none'}}>Eliminar</button>
-                  </div>
-                ))
-              )}
-            </div>
-            
-            {cart.length > 0 && (
-              <>
-                <div className="cart-total">
-                  Total: {formatCurrency(total)}
-                </div>
-                <button className="whatsapp-btn" onClick={sendWhatsApp}>
-                  🛍️ Pedir por WhatsApp
-                </button>
-              </>
-            )}
-          </div>
-        </div>
-      )}
-
-      <footer style={{textAlign: 'center', padding: '40px', color: 'var(--text-light)'}}>
-        <p>&copy; 2026 MUNDO ROSA - Todos los derechos reservados.</p>
       </footer>
     </div>
   );
