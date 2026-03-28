@@ -1,6 +1,6 @@
 import React from 'react';
 
-function ProductCard({ product, priceType, onAddToCart, formatCurrency }) {
+function ProductCard({ product, onAddToCart, formatCurrency }) {
   return (
     <div className="product-card">
       <div className="product-image-container">
@@ -8,14 +8,6 @@ function ProductCard({ product, priceType, onAddToCart, formatCurrency }) {
       </div>
       <div className="product-info">
         <h3>{product.name}</h3>
-        
-        {product.tags && (
-          <div className="product-tags">
-            {product.tags.split(',').slice(0, 3).map((tag, i) => (
-              <span key={i} className="tag-badge">{tag.trim()}</span>
-            ))}
-          </div>
-        )}
 
         <div className="price-container">
           <div className="price-row">
