@@ -1,842 +1,322 @@
 [
   {
-    "id": "p-1774384507375",
-    "name": "Gloss Chicle ",
-    "mayor": 3500,
-    "detal": 7000,
-    "image": "images/product_p-1774384507375.jpg",
-    "tags": "Rosa, Celeste, Cilíndrico, Brillante, Transparente, Esférico, Líquido, Compacto"
-  },
-  {
-    "id": "p-1774384589347",
-    "name": "Gloss Flor Pastel ",
-    "mayor": 3500,
-    "detal": 7000,
-    "image": "images/product_p-1774384589347.jpg",
-    "tags": "Tonos pastel, Forma cilíndrica, Detalle floral, Acabado brillante, Envase transparente, Diseño kawaii, Tamaño compacto, Kit variado"
-  },
-  {
-    "id": "p-1774384631778",
-    "name": "Gloss Honguito Stich ",
-    "mayor": 3000,
-    "detal": 6000,
-    "image": "images/product_p-1774384631778.jpg",
-    "tags": "Azul pastel, Personaje Stitch, Brillo labial, Formato mini, Estilo kawaii, Acabado brillante, Tapa decorativa, Envase transparente."
-  },
-  {
-    "id": "p-1774384671389",
-    "name": "Gloss Fresita destellos",
-    "mayor": 3000,
-    "detal": 6000,
-    "image": "images/product_p-1774384671389.jpg",
-    "tags": "Rosa, fresa, cilíndrico, brillante, transparente, glitter, kawaii, juvenil."
-  },
-  {
-    "id": "p-1774384753000",
-    "name": "Gloss abejita",
-    "mayor": 4000,
-    "detal": 8000,
-    "image": "images/product_p-1774384753000.jpg",
-    "tags": "Rosado, Colmena, Brillante, Abeja, Flor, Llavero, Líquido, Kawaii"
-  },
-  {
-    "id": "p-1774404973982",
-    "name": "SOL DE JANEIRO",
-    "mayor": 9600,
-    "detal": 16000,
-    "image": "images/product_p-1774404973982.jpg",
-    "tags": "Ámbar, Cilíndrico, Brillante, Blanco, Translúcido, Vaporizador, Minimalista, Portátil."
-  },
-  {
-    "id": "p-1774405031329",
-    "name": "SOL DE JANEIRO",
-    "mayor": 9600,
-    "detal": 16000,
-    "image": "images/product_p-1774405031329.jpg",
-    "tags": "Frasco cilíndrico, Tapa azul, Cuerpo oscuro, Tamaño compacto, Etiqueta blanca, Acabado mate, Spray perfumado, Estilo moderno"
-  },
-  {
-    "id": "p-1774405079364",
-    "name": "SOL DE JANEIRO",
-    "mayor": 9600,
-    "detal": 16000,
-    "image": "images/product_p-1774405079364.jpg",
-    "tags": "Rosa, cilíndrico, transparente, spray, compacto, plástico, floral, mate."
-  },
-  {
-    "id": "p-1774405121774",
-    "name": "SOL DE JANEIRO",
-    "mayor": 9600,
-    "detal": 16000,
-    "image": "images/product_p-1774405121774.jpg",
-    "tags": "Dorado, Cilíndrico, Líquido, Spray, Floral, Portátil, Elegante, Translúcido."
-  },
-  {
-    "id": "p-1774405152434",
-    "name": "SOL DE JANEIRO",
-    "mayor": 9600,
-    "detal": 16000,
-    "image": "images/product_p-1774405152434.jpg",
-    "tags": "Color ámbar, Forma cilíndrica, Tapa blanca, Envase translúcido, Estilo moderno, Perfume mist, Acabado liso, Diseño minimalista"
-  },
-  {
-    "id": "p-1774405209566",
-    "name": "SOL DE JANEIRO",
-    "mayor": 9600,
-    "detal": 16000,
-    "image": "images/product_p-1774405209566.jpg",
-    "tags": "Rojo, Cilíndrico, Blanco, Translúcido, Perfume, Spray, Compacto, Moderno"
-  },
-  {
-    "id": "p-1774405240462",
-    "name": "SOL DE JANEIRO",
-    "mayor": 9600,
-    "detal": 16000,
-    "image": "images/product_p-1774405240462.jpg",
-    "tags": "Color violeta, Forma cilíndrica, Tapa blanca, Envase translúcido, Tamaño compacto, Diseño moderno, Material plástico, Spray corporal."
-  },
-  {
-    "id": "p-1774448856423",
-    "name": "Mini perfumes de lujo",
-    "mayor": 35000,
-    "detal": 55000,
-    "image": "images/product_p-1774448856423.jpg",
-    "tags": "Rosado, corazones, vidrio, perfumes, femenino, miniatura, regalo, floral"
+    "id": "wa-1776178802442-0",
+    "name": " ♡PRODUCTOS VIRALES ♡",
+    "mayor": 0,
+    "detal": 0,
+    "image": "images/product_wa-1776178802442-0.gif",
+    "category": "Importado de WhatsApp 📱"
+  },
+  {
+    "id": "wa-1776178802442-1",
+    "name": "♡kit Dúo Truly♡",
+    "mayor": 0,
+    "detal": 0,
+    "image": "images/product_wa-1776178802442-1.gif",
+    "category": "Importado de WhatsApp 📱"
+  },
+  {
+    "id": "wa-1776178802442-2",
+    "name": "♡Aceite Truly Grande♡",
+    "mayor": 0,
+    "detal": 0,
+    "image": "images/product_wa-1776178802442-2.gif",
+    "category": "Importado de WhatsApp 📱"
+  },
+  {
+    "id": "wa-1776178802442-3",
+    "name": "♡Crema Truly Lujo Con Destellos♡",
+    "mayor": 0,
+    "detal": 0,
+    "image": "images/product_wa-1776178802442-3.gif",
+    "category": "Importado de WhatsApp 📱"
+  },
+  {
+    "id": "wa-1776178802442-4",
+    "name": " ♡MAQUILLAJE Y COSMÉTICOS ♡",
+    "mayor": 0,
+    "detal": 0,
+    "image": "images/product_wa-1776178802442-4.gif",
+    "category": "Importado de WhatsApp 📱"
+  },
+  {
+    "id": "wa-1776178802442-5",
+    "name": "♡Protector Solar La Roche ♡",
+    "mayor": 0,
+    "detal": 0,
+    "image": "images/product_wa-1776178802442-5.gif",
+    "category": "Importado de WhatsApp 📱"
+  },
+  {
+    "id": "wa-1776178802442-6",
+    "name": "♡Cosmetiquera Alo Transparente♡",
+    "mayor": 0,
+    "detal": 0,
+    "image": "images/product_wa-1776178802442-6.gif",
+    "category": "Importado de WhatsApp 📱"
+  },
+  {
+    "id": "wa-1776178802442-7",
+    "name": "♡Gloss Llavero Osito Perlado♡",
+    "mayor": 0,
+    "detal": 0,
+    "image": "images/product_wa-1776178802442-7.gif",
+    "category": "Importado de WhatsApp 📱"
+  },
+  {
+    "id": "wa-1776178802442-8",
+    "name": " ♡MEDIAS ♡",
+    "mayor": 0,
+    "detal": 0,
+    "image": "images/product_wa-1776178802442-8.gif",
+    "category": "Importado de WhatsApp 📱"
+  },
+  {
+    "id": "wa-1776178802442-9",
+    "name": "♡Medias Mickey Rosa x12 Pares ♡",
+    "mayor": 0,
+    "detal": 0,
+    "image": "images/product_wa-1776178802442-9.gif",
+    "category": "Importado de WhatsApp 📱"
+  },
+  {
+    "id": "wa-1776178802442-10",
+    "name": "♡Medias Calentaoras ♡",
+    "mayor": 0,
+    "detal": 0,
+    "image": "images/product_wa-1776178802442-10.gif",
+    "category": "Importado de WhatsApp 📱"
+  },
+  {
+    "id": "wa-1776178802442-11",
+    "name": "♡Medias Panda Blancas x10 Pares ♡",
+    "mayor": 0,
+    "detal": 0,
+    "image": "images/product_wa-1776178802442-11.gif",
+    "category": "Importado de WhatsApp 📱"
+  },
+  {
+    "id": "wa-1776178802442-12",
+    "name": " ♡CABELLO Y ACCESORIOS ♡",
+    "mayor": 0,
+    "detal": 0,
+    "image": "images/product_wa-1776178802442-12.gif",
+    "category": "Importado de WhatsApp 📱"
   },
   {
-    "id": "p-1774448909472",
-    "name": "Mini perfumes de lujo",
-    "mayor": 35000,
-    "detal": 55000,
-    "image": "images/product_p-1774448909472.jpg",
-    "tags": "Rosa, Floral, Vidrio, Rectangular, Elegante, Pastel, Femenino, Brillante"
+    "id": "wa-1776178802442-13",
+    "name": "♡Plancha Keratina Incluye Cepillos ♡",
+    "mayor": 0,
+    "detal": 0,
+    "image": "images/product_wa-1776178802442-13.gif",
+    "category": "Importado de WhatsApp 📱"
   },
   {
-    "id": "p-1774450211329",
-    "name": "Estuches de mini perfumes de lujo",
-    "mayor": 35000,
-    "detal": 55000,
-    "image": "images/product_p-1774450211329.jpg",
-    "tags": "Set de fragancias, Estuche de regalo, Frascos de vidrio, Tonos dorados, Acabado brillante, Diseño elegante, Fragancias masculinas, Forma geométrica"
+    "id": "wa-1776178802442-14",
+    "name": "♡Plancha Girly♡",
+    "mayor": 0,
+    "detal": 0,
+    "image": "images/product_wa-1776178802442-14.gif",
+    "category": "Importado de WhatsApp 📱"
   },
   {
-    "id": "p-1774631147141",
-    "name": " Splash Tipo Victoria",
-    "mayor": 15000,
-    "detal": 25000,
-    "image": "images/product_p-1774631147141.jpg",
-    "tags": "Bruma corporal, Botella cilíndrica, Confeti multicolor, Tapón metalizado, Azul turquesa, Estampado vibrante, Envase transparente, Diseño festivo"
+    "id": "wa-1776178802442-15",
+    "name": "♡Cepillo Duo Secador y Plancha Keratina ♡",
+    "mayor": 0,
+    "detal": 0,
+    "image": "images/product_wa-1776178802442-15.gif",
+    "category": "Importado de WhatsApp 📱"
   },
   {
-    "id": "p-1774631174662",
-    "name": " Splash Tipo Victoria",
-    "mayor": 15000,
-    "detal": 25000,
-    "image": "images/product_p-1774631174662.jpg",
-    "tags": "Cilíndrico, Marmolado, Pastel, Metalizado, Brillante, Colorido, Esbelto, Vibrante"
+    "id": "wa-1776178802442-16",
+    "name": " ♡COLECCION DE LUJO ♡",
+    "mayor": 0,
+    "detal": 0,
+    "image": "images/product_wa-1776178802442-16.gif",
+    "category": "Importado de WhatsApp 📱"
   },
   {
-    "id": "p-1774631202954",
-    "name": " Splash Tipo Victoria",
-    "mayor": 15000,
-    "detal": 25000,
-    "image": "images/product_p-1774631202954.jpg",
-    "tags": "Cilíndrico, Multicolor, Metalizado, Jaspeado, Confeti, Juvenil, Fragancia, Brillante."
+    "id": "wa-1776178802442-17",
+    "name": "♡Bolso Cartera Coach Corazones ♡",
+    "mayor": 0,
+    "detal": 0,
+    "image": "images/product_wa-1776178802442-17.gif",
+    "category": "Importado de WhatsApp 📱"
   },
   {
-    "id": "p-1774631263266",
-    "name": "Cremas Candy Tipo Victoria",
-    "mayor": 15000,
-    "detal": 23000,
-    "image": "images/product_p-1774631263266.jpg",
-    "tags": "Tubo, Rosado y azul, Galáctico, Brillante, Moteado, Dulce, Pastel, Juvenil."
+    "id": "wa-1776178802442-18",
+    "name": "♡Bolso Cartera Coach Corazones ♡",
+    "mayor": 0,
+    "detal": 0,
+    "image": "images/product_wa-1776178802442-18.gif",
+    "category": "Importado de WhatsApp 📱"
   },
   {
-    "id": "p-1774631305273",
-    "name": "Cremas Candy Tipo Victoria",
-    "mayor": 15000,
-    "detal": 23000,
-    "image": "images/product_p-1774631305273.jpg",
-    "tags": "Tubo flexible, Tonos pastel, Diseño acuarela, Loción perfumada, Envase plástico, 236 ml, Estilo juvenil, Acabado brillante."
+    "id": "wa-1776178802442-19",
+    "name": "♡Manos Libres Lujo Miu Miu ♡",
+    "mayor": 0,
+    "detal": 0,
+    "image": "images/product_wa-1776178802442-19.gif",
+    "category": "Importado de WhatsApp 📱"
   },
   {
-    "id": "p-1774631336295",
-    "name": "Cremas Candy Tipo Victoria",
-    "mayor": 15000,
-    "detal": 23000,
-    "image": "images/product_p-1774631336295.jpg",
-    "tags": "Loción corporal, colores pastel, forma tubular, diseño artístico, fragancias dulces, acabado liso, estética moderna, envase flexible."
+    "id": "wa-1776178802442-20",
+    "name": "♡TERMOS Y MUGS ♡",
+    "mayor": 0,
+    "detal": 0,
+    "image": "images/product_wa-1776178802442-20.gif",
+    "category": "Importado de WhatsApp 📱"
   },
   {
-    "id": "p-1774631381037",
-    "name": "Mini Moschino ",
-    "mayor": 18000,
-    "detal": 28000,
-    "image": "images/product_p-1774631381037.jpg",
-    "tags": "Rosa vibrante, Forma de oso, Tapa con corona, Cristal transparente, Acabado brillante, Estilo lúdico, Diseño icónico, Fragancia femenina"
+    "id": "wa-1776178802442-21",
+    "name": "♡Stanley Love ♡",
+    "mayor": 0,
+    "detal": 0,
+    "image": "images/product_wa-1776178802442-21.gif",
+    "category": "Importado de WhatsApp 📱"
   },
   {
-    "id": "p-1774633859842",
-    "name": "Stanley Love",
-    "mayor": 33000,
-    "detal": 58000,
-    "image": "images/product_p-1774633859842.jpg",
-    "tags": "Negro mate, Corazones blancos, Acero inoxidable, Tapa con asa, Cilíndrico, Diseño minimalista, Acabado suave, Estilo aesthetic."
+    "id": "wa-1776178802442-22",
+    "name": "♡Termo Stanley Girly ♡",
+    "mayor": 0,
+    "detal": 0,
+    "image": "images/product_wa-1776178802442-22.gif",
+    "category": "Importado de WhatsApp 📱"
   },
   {
-    "id": "p-1774633883766",
-    "name": "Stanley Love",
-    "mayor": 33000,
-    "detal": 58000,
-    "image": "images/product_p-1774633883766.jpg",
-    "tags": "Termo, Blanco, Corazones, Mate, Acero, Asa, Cilíndrico, Romántico"
+    "id": "wa-1776178802442-23",
+    "name": "♡Stanley Duo Lujo Blanco ♡",
+    "mayor": 0,
+    "detal": 0,
+    "image": "images/product_wa-1776178802442-23.gif",
+    "category": "Importado de WhatsApp 📱"
   },
   {
-    "id": "p-1774633908239",
-    "name": "Stanley Love",
-    "mayor": 33000,
-    "detal": 58000,
-    "image": "images/product_p-1774633908239.jpg",
-    "tags": "Gris, Corazones, Acero inoxidable, Mate, Cilíndrico, Asa integrada, Estampado, Térmico"
+    "id": "wa-1776178802442-24",
+    "name": " ♡COLECCION PIJAMAS ♡",
+    "mayor": 0,
+    "detal": 0,
+    "image": "images/product_wa-1776178802442-24.gif",
+    "category": "Importado de WhatsApp 📱"
   },
   {
-    "id": "p-1774633931384",
-    "name": "Stanley Love",
-    "mayor": 33000,
-    "detal": 58000,
-    "image": "images/product_p-1774633931384.jpg",
-    "tags": "Blanco, Cilíndrico, Mate, Corazones, Acero, Asa, Multicolor, Moderno"
+    "id": "wa-1776178802442-25",
+    "name": "♡Pijama Short Premium ♡",
+    "mayor": 0,
+    "detal": 0,
+    "image": "images/product_wa-1776178802442-25.gif",
+    "category": "Importado de WhatsApp 📱"
   },
   {
-    "id": "p-1774633962023",
-    "name": "Stanley Love",
-    "mayor": 33000,
-    "detal": 58000,
-    "image": "images/product_p-1774633962023.jpg",
-    "tags": "Rosa, Corazones, Cilíndrico, Mate, Acero, Asa, Romántico, Portátil"
+    "id": "wa-1776178802442-26",
+    "name": "♡Pijama Premium Deisy♡",
+    "mayor": 0,
+    "detal": 0,
+    "image": "images/product_wa-1776178802442-26.gif",
+    "category": "Importado de WhatsApp 📱"
   },
   {
-    "id": "p-1774633993086",
-    "name": "Stanley Love",
-    "mayor": 33000,
-    "detal": 58000,
-    "image": "images/product_p-1774633993086.jpg",
-    "tags": "Blanco y rosa, Estampado de corazones, Acero inoxidable, Forma ergonómica, Asa plegable, Estilo romántico, Tapa con pajita, Acabado mate."
-  },
-  {
-    "id": "p-1774634025732",
-    "name": "Stanley Love",
-    "mayor": 33000,
-    "detal": 58000,
-    "image": "images/product_p-1774634025732.jpg",
-    "tags": "Negro, Corazones, Cilíndrico, Mate, Acero, Multicolor, Asa, Boceto"
-  },
-  {
-    "id": "p-1774634051350",
-    "name": "Stanley Love",
-    "mayor": 33000,
-    "detal": 58000,
-    "image": "images/product_p-1774634051350.jpg",
-    "tags": "Galaxia, Corazones, Tipográfico, Multicolor, Cilíndrico, Metálico, Asa, Brillante"
-  },
-  {
-    "id": "p-1774634080280",
-    "name": "Stanley Love",
-    "mayor": 33000,
-    "detal": 58000,
-    "image": "images/product_p-1774634080280.jpg",
-    "tags": "Cilíndrico, Corazones, Multicolor, Estampado, Mate, Asa, Acero, Térmico"
-  },
-  {
-    "id": "p-1774634142976",
-    "name": " Ventilador mini Pastel ",
-    "mayor": 10000,
-    "detal": 16000,
-    "image": "images/product_p-1774634142976.jpg",
-    "tags": "Colores pastel, Diseño portátil, Acabado mate, Forma cilíndrica, Material plástico, Tamaño compacto, Estilo minimalista, Cabezal circular"
-  },
-  {
-    "id": "p-1774634171260",
-    "name": " Ventilador mini Pastel ",
-    "mayor": 10000,
-    "detal": 16000,
-    "image": "images/product_p-1774634171260.jpg",
-    "tags": "Colores pastel, Diseño compacto, Forma circular, Acabado mate, Estilo moderno, Mango ergonómico, Portátil, Material plástico"
-  },
-  {
-    "id": "p-1774640079456",
-    "name": "Ventilador mini Orejitas Personajes ",
-    "mayor": 11000,
-    "detal": 17000,
-    "image": "images/product_p-1774640079456.jpg",
-    "tags": "Portátil, Colores pastel, Diseño kawaii, Recargable USB, Plástico mate, Tamaño mini, Base soporte, Estilo animado."
-  },
-  {
-    "id": "p-1774640143539",
-    "name": "Ventilador mini Orejitas Personajes ",
-    "mayor": 11000,
-    "detal": 17000,
-    "image": "images/product_p-1774640143539.jpg",
-    "tags": "Multicolor, Kawaii, Portátil, Mate, Plástico, Orejas, Lazo, Soporte"
-  },
-  {
-    "id": "prod-1774368758216",
-    "name": "Estuche mini perfumes Dior x3",
-    "image": "images/product_prod-1774368758216.jpg",
-    "mayor": 27000,
-    "detal": 38000,
-    "tags": "Rosa, Dorado, Cristal, Elegante, Floral, Brillante, Geométrico, Lujoso"
-  },
-  {
-    "id": "prod-1774368981244",
-    "name": "Cepillo secador",
-    "image": "images/product_prod-1774368981244.jpg",
-    "mayor": 28000,
-    "detal": 45000,
-    "tags": "Negro y fucsia, forma ovalada, mango ergonómico, cerdas mixtas, acabado mate, cuerpo cilíndrico, orificios de ventilación, diseño moderno"
-  },
-  {
-    "id": "prod-1774369118040",
-    "name": " Stanley Girly ",
-    "image": "images/product_prod-1774369118040.jpg",
-    "mayor": 33000,
-    "detal": 58000,
-    "tags": "Rosa, Blanco, Cilíndrico, Mate, Acero inoxidable, Estampado cosméticos, Asa abatible, Estilo coquette"
-  },
-  {
-    "id": "prod-1774369165870",
-    "name": " Stanley Girly ",
-    "image": "images/product_prod-1774369165870.jpg",
-    "mayor": 33000,
-    "detal": 58000,
-    "tags": "Amarillo vibrante, Estampado leopardo, Tapa con asa, Forma cilíndrica, Acabado mate, Diseño moderno, Detalles rosas, Botella térmica."
-  },
-  {
-    "id": "prod-1774369194964",
-    "name": " Stanley Girly ",
-    "image": "images/product_prod-1774369194964.jpg",
-    "mayor": 33000,
-    "detal": 58000,
-    "tags": "Botella térmica, Rosa pastel, Estampado de dulces, Acero inoxidable, Diseño cilíndrico, Estilo coquette, Asa integrada, Acabado mate."
-  },
-  {
-    "id": "prod-1774369220131",
-    "name": " Stanley Girly ",
-    "image": "images/product_prod-1774369220131.jpg",
-    "mayor": 33000,
-    "detal": 58000,
-    "tags": "Rosa, Cilíndrico, Mate, Fresas, Moños, Flores, Acero, Asa"
-  },
-  {
-    "id": "prod-1774369248843",
-    "name": " Stanley Girly ",
-    "image": "images/product_prod-1774369248843.jpg",
-    "mayor": 33000,
-    "detal": 58000,
-    "tags": "Blanco, Mariposas, Pastel, Mate, Cilíndrico, Asa, Acero, Estampado"
-  },
-  {
-    "id": "prod-1774369275765",
-    "name": " Stanley Girly ",
-    "image": "images/product_prod-1774369275765.jpg",
-    "mayor": 33000,
-    "detal": 58000,
-    "tags": "Rosa pastel, Cilíndrica, Estilo coquette, Mate, Dibujos vintage, Asa integrada, Térmica, Acero inoxidable"
-  },
-  {
-    "id": "prod-1774369297423",
-    "name": " Stanley Girly ",
-    "image": "images/product_prod-1774369297423.jpg",
-    "mayor": 33000,
-    "detal": 58000,
-    "tags": "Color lavanda, estampado mariposas, acero inoxidable, acabado mate, forma cilíndrica, asa de transporte, tapa funcional, estilo femenino"
-  },
-  {
-    "id": "prod-1774369329901",
-    "name": " Stanley Girly ",
-    "image": "images/product_prod-1774369329901.jpg",
-    "mayor": 33000,
-    "detal": 58000,
-    "tags": "Pastel, estampado, cónico, acero, asa, popote, femenino, variado."
-  },
-  {
-    "id": "prod-1774369377642",
-    "name": "Stanley aesthetic Floral",
-    "image": "images/product_prod-1774369377642.jpg",
-    "mayor": 33000,
-    "detal": 58000,
-    "tags": "Rosa, Cilíndrica, Mate, Retro, Floral, Metálica, Estampada, Portátil"
-  },
-  {
-    "id": "prod-1774369403201",
-    "name": "Stanley aesthetic Floral",
-    "image": "images/product_prod-1774369403201.jpg",
-    "mayor": 33000,
-    "detal": 58000,
-    "tags": "Estampado floral, Blanco y rosa, Cilíndrica, Acabado mate, Asa rígida, Botella térmica, Estilo aesthetic, Tapa con boquilla."
-  },
-  {
-    "id": "prod-1774369429777",
-    "name": "Stanley aesthetic Floral",
-    "image": "images/product_prod-1774369429777.jpg",
-    "mayor": 33000,
-    "detal": 58000,
-    "tags": "Rosa pastel, Estampado floral, Cilíndrico, Acero inoxidable, Acabado mate, Asa superior, Tapa rígida, Estilo juvenil"
-  },
-  {
-    "id": "prod-1774369454535",
-    "name": "Stanley aesthetic Floral",
-    "image": "images/product_prod-1774369454535.jpg",
-    "mayor": 33000,
-    "detal": 58000,
-    "tags": "Rosa vibrante, estampado retro, cilíndrico, acero inoxidable, asa integrada, acabado mate, diseño floral, tapón abatible."
-  },
-  {
-    "id": "prod-1774369478795",
-    "name": "Stanley aesthetic Floral",
-    "image": "images/product_prod-1774369478795.jpg",
-    "mayor": 33000,
-    "detal": 58000,
-    "tags": "Negro mate, Estampado floral, Acero inoxidable, Tapa con asa, Diseño ergonómico, Estilo retro, Térmico, Portátil."
-  },
-  {
-    "id": "prod-1774369503259",
-    "name": "Stanley aesthetic Floral",
-    "image": "images/product_prod-1774369503259.jpg",
-    "mayor": 33000,
-    "detal": 58000,
-    "tags": "Rosa, Cilíndrico, Corazón, Estampado, Metálico, Asa, Portátil, Colorido"
-  },
-  {
-    "id": "prod-1774369526743",
-    "name": "Stanley aesthetic Floral",
-    "image": "images/product_prod-1774369526743.jpg",
-    "mayor": 33000,
-    "detal": 58000,
-    "tags": "Multicolor, Estampado floral, Acero inoxidable, Con asa, Térmico, Acabado mate, Portátil, Estilo aesthetic"
-  },
-  {
-    "id": "prod-1774369579307",
-    "name": "Billetera Coach",
-    "image": "images/product_prod-1774369579307.jpg",
-    "mayor": 22000,
-    "detal": 32000,
-    "tags": "Beige rosado, Estampado monograma, Lona texturizada, Herraje dorado, Forma rectangular, Diseño plegable, Estilo elegante, Marca Coach"
-  },
-  {
-    "id": "prod-1774369609281",
-    "name": "Billetera Coach",
-    "image": "images/product_prod-1774369609281.jpg",
-    "mayor": 22000,
-    "detal": 32000,
-    "tags": "Marrón y beige, Rectangular, Lona monograma, Herraje dorado, Cierre de solapa, Estilo clásico, Diseño compacto, Textura granulada"
-  },
-  {
-    "id": "prod-1774369644425",
-    "name": "Billetera Coach",
-    "image": "images/product_prod-1774369644425.jpg",
-    "mayor": 22000,
-    "detal": 32000,
-    "tags": "Billetera, Monograma, Rosa palo, Broche dorado, Texturizada, Rectangular, Elegante, Solapa frontal"
-  },
-  {
-    "id": "prod-1774369667115",
-    "name": "Billetera Coach",
-    "image": "images/product_prod-1774369667115.jpg",
-    "mayor": 22000,
-    "detal": 32000,
-    "tags": "Color beige y marrón, Estampado de monograma, Lona revestida, Detalles de cuero, Hebilla dorada, Forma rectangular, Tamaño compacto, Estilo clásico y elegante."
-  },
-  {
-    "id": "prod-1774369687519",
-    "name": "Billetera Coach",
-    "image": "images/product_prod-1774369687519.jpg",
-    "mayor": 22000,
-    "detal": 32000,
-    "tags": "Gris oscuro, Estampado monograma, Herraje dorado, Forma rectangular, Lona granulada, Cierre de broche, Tamaño compacto, Estilo clásico"
-  },
-  {
-    "id": "prod-1774369729749",
-    "name": "Billetera Coach  corta ",
-    "image": "images/product_prod-1774369729749.jpg",
-    "mayor": 19000,
-    "detal": 28000,
-    "tags": "Color beige, Estampado monograma, Forma rectangular, Textura granulada, Logo dorado, Cierre de solapa, Tamaño compacto, Acabado elegante"
-  },
-  {
-    "id": "prod-1774369752599",
-    "name": "Billetera Coach  corta ",
-    "image": "images/product_prod-1774369752599.jpg",
-    "mayor": 19000,
-    "detal": 28000,
-    "tags": "Color marrón y beige, Estampado de monograma, Logo metálico dorado, Cierre de presión, Tamaño compacto, Lona revestida, Diseño bifold, Textura granulada"
-  },
-  {
-    "id": "prod-1774369779011",
-    "name": "Billetera Coach  corta ",
-    "image": "images/product_prod-1774369779011.jpg",
-    "mayor": 19000,
-    "detal": 28000,
-    "tags": "Negro y gris, Estampado monograma, Textura granulada, Logo metálico dorado, Forma rectangular, Tamaño compacto, Cierre de solapa, Estilo clásico."
-  },
-  {
-    "id": "prod-1774369801051",
-    "name": "Billetera Coach  corta ",
-    "image": "images/product_prod-1774369801051.jpg",
-    "mayor": 19000,
-    "detal": 28000,
-    "tags": "Beige, Monograma, Rectangular, Compacto, Cuero, Dorado, Lona, Elegante."
-  },
-  {
-    "id": "prod-1774369825161",
-    "name": "Billetera Coach  corta ",
-    "image": "images/product_prod-1774369825161.jpg",
-    "mayor": 19000,
-    "detal": 28000,
-    "tags": "Marrón, Rectangular, Monograma, Lona, Dorado, Compacto, Elegante, Texturizado"
-  },
-  {
-    "id": "prod-1774369877985",
-    "name": "Manos libres tipo riñonera Steve Madeen",
-    "image": "images/product_prod-1774369877985.jpg",
-    "mayor": 25000,
-    "detal": 35000,
-    "tags": "Plateado, Metalizado, Rectangular, Bandolera, Logotipo, Cremallera, Correa ancha, Texturizado"
-  },
-  {
-    "id": "prod-1774369915227",
-    "name": "Manos libres tipo riñonera Steve Madeen",
-    "image": "images/product_prod-1774369915227.jpg",
-    "mayor": 25000,
-    "detal": 35000,
-    "tags": "Blanco crema, Rectangular, Steve Madden, Bandolera, Correa ancha, Doble cremallera, Logo en relieve, Tamaño compacto"
-  },
-  {
-    "id": "prod-1774369937241",
-    "name": "Manos libres tipo riñonera Steve Madeen",
-    "image": "images/product_prod-1774369937241.jpg",
-    "mayor": 25000,
-    "detal": 35000,
-    "tags": "Beige, Rectangular, Texturizado, Bandolera, Logo en relieve, Correa ancha, Doble cremallera, Estilo moderno."
-  },
-  {
-    "id": "prod-1774369961057",
-    "name": "Manos libres tipo riñonera Steve Madeen",
-    "image": "images/product_prod-1774369961057.jpg",
-    "mayor": 25000,
-    "detal": 35000,
-    "tags": "Negro, Rectangular, Charol, Texturizado, Logotipo, Correa ancha, Brillante, Cremallera"
-  },
-  {
-    "id": "prod-1774369986439",
-    "name": "Manos libres tipo riñonera Steve Madeen",
-    "image": "images/product_prod-1774369986439.jpg",
-    "mayor": 25000,
-    "detal": 35000,
-    "tags": "Steve Madden, Bandolera, Rectangular, Correa ajustable, Logotipo frontal, Doble compartimento, Cuero sintético, Varios colores."
-  },
-  {
-    "id": "prod-1774370029905",
-    "name": "Manos libres tipo riñonera Tipo Prada",
-    "image": "images/product_prod-1774370029905.jpg",
-    "mayor": 20000,
-    "detal": 30000,
-    "tags": "Color marrón, Textura ondulada, Forma rectangular, Correa estampada, Cierre cremallera, Estilo bandolera, Herrajes dorados, Tamaño pequeño."
-  },
-  {
-    "id": "prod-1774370052549",
-    "name": "Manos libres tipo riñonera Tipo Prada",
-    "image": "images/product_prod-1774370052549.jpg",
-    "mayor": 20000,
-    "detal": 30000,
-    "tags": "Rosado pastel, Textura ondulada, Forma rectangular, Correa ancha, Detalles blancos, Herrajes dorados, Estilo moderno, Diseño acolchado"
-  },
-  {
-    "id": "prod-1774370074717",
-    "name": "Manos libres tipo riñonera Tipo Prada",
-    "image": "images/product_prod-1774370074717.jpg",
-    "mayor": 20000,
-    "detal": 30000,
-    "tags": "Blanco y beige, Rectangular, Textura ondulada, Herrajes dorados, Logo triangular, Correa ancha estampada, Cierre de cremallera, Estilo moderno"
-  },
-  {
-    "id": "prod-1774370096943",
-    "name": "Manos libres tipo riñonera Tipo Prada",
-    "image": "images/product_prod-1774370096943.jpg",
-    "mayor": 20000,
-    "detal": 30000,
-    "tags": "Negro y blanco, Rectangular, Textura ondulada, Acolchado, Correa logotipada, Herrajes dorados, Bandolera, Sintético"
-  },
-  {
-    "id": "prod-1774370116731",
-    "name": "Manos libres tipo riñonera Tipo Prada",
-    "image": "images/product_prod-1774370116731.jpg",
-    "mayor": 20000,
-    "detal": 30000,
-    "tags": "Rectangular, Ondulado, Acolchado, Multicolor, Correa ancha, Herrajes dorados, Bandolera, Logo triangular"
-  },
-  {
-    "id": "prod-1774370163341",
-    "name": "Manos libres tipo riñonera Bimba y Lola ",
-    "image": "images/product_prod-1774370163341.jpg",
-    "mayor": 25000,
-    "detal": 35000,
-    "tags": "Color crema, Cuero granulado, Forma rectangular, Estilo bandolera, Correa estampada, Cremalleras doradas, Logotipo en relieve, Tamaño compacto"
-  },
-  {
-    "id": "prod-1774370186407",
-    "name": "Manos libres tipo riñonera Bimba y Lola ",
-    "image": "images/product_prod-1774370186407.jpg",
-    "mayor": 25000,
-    "detal": 35000,
-    "tags": "Beige, Rectangular, Granulada, Bandolera, Logotipo, Dorado, Estampada, Cremallera"
-  },
-  {
-    "id": "prod-1774370206779",
-    "name": "Manos libres tipo riñonera Bimba y Lola ",
-    "image": "images/product_prod-1774370206779.jpg",
-    "mayor": 25000,
-    "detal": 35000,
-    "tags": "Negro, Rectangular, Granulado, Bimba y Lola, Correa ancha, Estampado geométrico, Cremalleras doradas, Bandolera"
-  },
-  {
-    "id": "prod-1774370228967",
-    "name": "Manos libres tipo riñonera Bimba y Lola ",
-    "image": "images/product_prod-1774370228967.jpg",
-    "mayor": 25000,
-    "detal": 35000,
-    "tags": "Color beige, Textura granulada, Forma rectangular, Correa ancha, Estampado geométrico, Herrajes dorados, Doble cremallera, Logo frontal"
-  },
-  {
-    "id": "prod-1774370249782",
-    "name": "Manos libres tipo riñonera Bimba y Lola ",
-    "image": "images/product_prod-1774370249782.jpg",
-    "mayor": 25000,
-    "detal": 35000,
-    "tags": "Bandolera, Rectangular, Textura granulada, Correa ancha, Estampado geométrico, Tonos neutros, Doble cremallera, Herrajes dorados"
-  },
-  {
-    "id": "prod-1774370287997",
-    "name": "Billetera Corta con pompón  LV",
-    "image": "images/product_prod-1774370287997.jpg",
-    "mayor": 10000,
-    "detal": 16000,
-    "tags": "Rojo, grabado, rectangular, cuero, corazón, cremallera, pompón, monograma"
-  },
-  {
-    "id": "prod-1774370308405",
-    "name": "Billetera Corta con pompón  LV",
-    "image": "images/product_prod-1774370308405.jpg",
-    "mayor": 10000,
-    "detal": 16000,
-    "tags": "Blanco crema, Grabado relieve, Rectangular, Corazón central, Pompón decorativo, Cierre cremallera, Tamaño mini, Estilo elegante."
-  },
-  {
-    "id": "prod-1774370330552",
-    "name": "Billetera Corta con pompón  LV",
-    "image": "images/product_prod-1774370330552.jpg",
-    "mayor": 10000,
-    "detal": 16000,
-    "tags": "Negro, Rectangular, Sintético, Grabado, Corazón, Pompón, Cremallera, Compacto"
-  },
-  {
-    "id": "prod-1774370352030",
-    "name": "Billetera Corta con pompón  LV",
-    "image": "images/product_prod-1774370352030.jpg",
-    "mayor": 10000,
-    "detal": 16000,
-    "tags": "Beige, Cuadrada, Grabada, Corazón, Pompón, Cremallera, Monograma, Pequeña"
-  },
-  {
-    "id": "prod-1774370450364",
-    "name": "iluminadores",
-    "image": "images/product_prod-1774370450364.jpg",
-    "mayor": 12000,
-    "detal": 18000,
-    "tags": "Champagne, Circular, Cilíndrico, Brillante, Nude, Esférico, Luminoso, Minimalista"
-  },
-  {
-    "id": "prod-1774370477162",
-    "name": "iluminadores",
-    "image": "images/product_prod-1774370477162.jpg",
-    "mayor": 12000,
-    "detal": 18000,
-    "tags": "Dorado, circular, sedoso, luminoso, compacto, beige, espejado, brillante."
-  },
-  {
-    "id": "prod-1774370497666",
-    "name": "iluminadores",
-    "image": "images/product_prod-1774370497666.jpg",
-    "mayor": 12000,
-    "detal": 18000,
-    "tags": "Rosado pastel, Forma circular, Acabado radiante, Textura sedosa, Empaque compacto, Espejo integrado, Efecto perlado, Diseño minimalista."
-  },
-  {
-    "id": "prod-1774370584812",
-    "name": "Rubores",
-    "image": "images/product_prod-1774370584812.jpg",
-    "mayor": 12000,
-    "detal": 18000,
-    "tags": "Rosa pastel, Circular, Luminoso, Polvo prensado, Tonos coral, Compacto, Espejo, Perlado."
-  },
-  {
-    "id": "prod-1774370609420",
-    "name": "Rubores",
-    "image": "images/product_prod-1774370609420.jpg",
-    "mayor": 12000,
-    "detal": 18000,
-    "tags": "Circular, Rubor, Satinado, Rosado, Beige, Compacto, Luminoso, Cremoso"
-  },
-  {
-    "id": "prod-1774370629578",
-    "name": "Rubores",
-    "image": "images/product_prod-1774370629578.jpg",
-    "mayor": 12000,
-    "detal": 18000,
-    "tags": "Rubor, Polvo, Luminoso, Circular, Rosa pálido, Espejo, Compacto, Multitono"
-  },
-  {
-    "id": "prod-1774370682884",
-    "name": "Gloss gigante pastel ",
-    "image": "images/product_prod-1774370682884.jpg",
-    "mayor": 4000,
-    "detal": 8000,
-    "tags": "Colores vibrantes, Brillo labial, Envase transparente, Forma cilíndrica, Acabado brillante, Estilo juvenil, Set de maquillaje, Tamaño compacto"
-  },
-  {
-    "id": "prod-1774370731614",
-    "name": "Tinta Con Pompom",
-    "image": "images/product_prod-1774370731614.jpg",
-    "mayor": 5500,
-    "detal": 10000,
-    "tags": "Color rosado, Textura suave, Acabado brillante, Llavero con charms, Diseño coquette, Envase transparente, Pompón decorativo, Tamaño compacto."
-  },
-  {
-    "id": "prod-1774370772924",
-    "name": "Gloss Llavero Fresa de lujo ",
-    "image": "images/product_prod-1774370772924.jpg",
-    "mayor": 5500,
-    "detal": 10000,
-    "tags": "Rosa, Corazón, Glitter, Fresa, Llavero, Glossy, Transparente, Coquette"
-  },
-  {
-    "id": "prod-1774370798620",
-    "name": "Gloss Llavero Fresa de lujo ",
-    "image": "images/product_prod-1774370798620.jpg",
-    "mayor": 5500,
-    "detal": 10000,
-    "tags": "Rosa, Cilíndrico, Brillante, Llavero, Fresa, Corazón, Dorado, Transparente"
-  },
-  {
-    "id": "prod-1774370947304",
-    "name": "Gloss Victoria diamante",
-    "image": "images/product_prod-1774370947304.jpg",
-    "mayor": 4000,
-    "detal": 8000,
-    "tags": "Rosa y lila, Pompón de felpa, Estilo coquette, Envase rectangular, Llavero portátil, Perlas y corazones, Glossy brillante, Tapas decoradas."
-  },
-  {
-    "id": "prod-1774370998584",
-    "name": "Tinta llavero de perlas lujo",
-    "image": "images/product_prod-1774370998584.jpg",
-    "mayor": 6500,
-    "detal": 12000,
-    "tags": "Rojo degradado, Rectangular, Brillante, Llavero de cuentas, Transparente, Estilo coquette, Compacto, Temática frutal."
-  },
-  {
-    "id": "prod-1774371038182",
-    "name": "Gloss Llavero Conchita",
-    "image": "images/product_prod-1774371038182.jpg",
-    "mayor": 5000,
-    "detal": 10000,
-    "tags": "Color rosa, Forma cilíndrica, Acabado brillante, Llavero decorativo, Estilo coquette, Motivos marinos, Textura fluida, Tamaño bolsillo"
-  },
-  {
-    "id": "prod-1774371089660",
-    "name": "Gloss corazón ",
-    "image": "images/product_prod-1774371089660.jpg",
-    "mayor": 3500,
-    "detal": 7000,
-    "tags": "Rosa, Corazón, Brillante, Cilíndrico, Transparente, Compacto, Decorado, Plástico"
-  },
-  {
-    "id": "prod-1774371115838",
-    "name": "Gloss corazón ",
-    "image": "images/product_prod-1774371115838.jpg",
-    "mayor": 3500,
-    "detal": 7000,
-    "tags": "Rosa, Corazón, Brillante, Líquido, Cilíndrico, Transparente, Pack 24, Infantil"
-  },
-  {
-    "id": "prod-1774371146850",
-    "name": "Gloss tapa corazón mini",
-    "image": "images/product_prod-1774371146850.jpg",
-    "mayor": 3500,
-    "detal": 7000,
-    "tags": "Rosa, Corazón, Brillante, Gloss, Hidratante, Moccallure, Maquillaje, Colección."
-  },
-  {
-    "id": "prod-1774371181436",
-    "name": "Gloss Minnie orejitas ",
-    "image": "images/product_prod-1774371181436.jpg",
-    "mayor": 3500,
-    "detal": 7000,
-    "tags": "Rosa, Cilíndrico, Brillante, Transparente, Plástico, Orejas, Cuadrícula, Líquido."
-  },
-  {
-    "id": "prod-1774371235132",
-    "name": "Labial Acabado Matte de larga duración ",
-    "image": "images/product_prod-1774371235132.jpg",
-    "mayor": 3000,
-    "detal": 7000,
-    "tags": "Bálsamos labiales, Tonos variados, Tubos flexibles, Tapas esféricas, Acabado mate, Textura suave, Diseño compacto, Kit de maquillaje."
-  },
-  {
-    "id": "prod-1774371262696",
-    "name": "Labial Acabado Matte de larga duración ",
-    "image": "images/product_prod-1774371262696.jpg",
-    "mayor": 3000,
-    "detal": 7000,
-    "tags": "Labiales mate, Tubos flexibles, Gama rosada, Aplicador esférico, Pack 24 piezas, Textura cremosa, Caja exhibidora, Maquillaje juvenil."
-  },
-  {
-    "id": "prod-1774371296793",
-    "name": "Labial Acabado Matte de larga duración ",
-    "image": "images/product_prod-1774371296793.jpg",
-    "mayor": 3000,
-    "detal": 7000,
-    "tags": "Multicolor, Cilíndrico, Esférico, Compacto, Cremoso, Mate, Portátil, Moderno"
-  },
-  {
-    "id": "prod-1774371321104",
-    "name": "Labial Acabado Matte de larga duración ",
-    "image": "images/product_prod-1774371321104.jpg",
-    "mayor": 3000,
-    "detal": 7000,
-    "tags": "Labial matte, Formato tubo, Tonos rosados, Acabado aterciopelado, Textura suave, Tamaño compacto, Aplicación precisa, Maquillaje labios"
-  },
-  {
-    "id": "prod-1774371354130",
-    "name": "El gloss más Girly",
-    "image": "images/product_prod-1774371354130.jpg",
-    "mayor": 3500,
-    "detal": 7000,
-    "tags": "Rosa, Rectangular, Brillante, Transparente, Lip gloss, Chic, Moderno, Líquido"
-  },
-  {
-    "id": "prod-1774371381717",
-    "name": "El gloss más Girly",
-    "image": "images/product_prod-1774371381717.jpg",
-    "mayor": 3500,
-    "detal": 7000,
-    "tags": "Rosa, Rectangular, Transparente, Brillante, Tipográfico, Líquido, Moderno, Plástico"
-  },
-  {
-    "id": "prod-1774371412521",
-    "name": "El gloss más Girly",
-    "image": "images/product_prod-1774371412521.jpg",
-    "mayor": 3500,
-    "detal": 7000,
-    "tags": "Rosa, Rectangular, Transparente, Holográfico, Brillante, Compacto, Labial, Plástico"
+    "id": "wa-1776178802442-27",
+    "name": "♡Pijama Premium Victoria Secret♡",
+    "mayor": 0,
+    "detal": 0,
+    "image": "images/product_wa-1776178802442-27.gif",
+    "category": "Importado de WhatsApp 📱"
+  },
+  {
+    "id": "wa-1776178802442-28",
+    "name": "♡LLAVEROS♡ ",
+    "mayor": 0,
+    "detal": 0,
+    "image": "images/product_wa-1776178802442-28.gif",
+    "category": "Importado de WhatsApp 📱"
+  },
+  {
+    "id": "wa-1776178802442-29",
+    "name": "♡Llavero Jesús♡",
+    "mayor": 0,
+    "detal": 0,
+    "image": "images/product_wa-1776178802442-29.gif",
+    "category": "Importado de WhatsApp 📱"
+  },
+  {
+    "id": "wa-1776178802442-30",
+    "name": "♡Llavero Virgen de Los Milagros♡",
+    "mayor": 0,
+    "detal": 0,
+    "image": "images/product_wa-1776178802442-30.gif",
+    "category": "Importado de WhatsApp 📱"
+  },
+  {
+    "id": "wa-1776178802442-31",
+    "name": "♡Llavero Virgen del Carmen ♡",
+    "mayor": 0,
+    "detal": 0,
+    "image": "images/product_wa-1776178802442-31.gif",
+    "category": "Importado de WhatsApp 📱"
+  },
+  {
+    "id": "wa-1776178802442-32",
+    "name": "♡TOALLAS♡",
+    "mayor": 0,
+    "detal": 0,
+    "image": "images/product_wa-1776178802442-32.gif",
+    "category": "Importado de WhatsApp 📱"
+  },
+  {
+    "id": "wa-1776178802442-33",
+    "name": "♡Toalla Microfibra Stich♡",
+    "mayor": 0,
+    "detal": 0,
+    "image": "images/product_wa-1776178802442-33.gif",
+    "category": "Importado de WhatsApp 📱"
+  },
+  {
+    "id": "wa-1776178802442-34",
+    "name": "♡Toalla Microfibra Chicas Superpoderosas ♡",
+    "mayor": 0,
+    "detal": 0,
+    "image": "images/product_wa-1776178802442-34.gif",
+    "category": "Importado de WhatsApp 📱"
+  },
+  {
+    "id": "wa-1776178802442-35",
+    "name": "♡Toalla Microfibra Chicas Superpoderosas♡",
+    "mayor": 0,
+    "detal": 0,
+    "image": "images/product_wa-1776178802442-35.gif",
+    "category": "Importado de WhatsApp 📱"
+  },
+  {
+    "id": "wa-1776178802442-36",
+    "name": "♡ ESCOLAR Y OFICINA ♡",
+    "mayor": 0,
+    "detal": 0,
+    "image": "images/product_wa-1776178802442-36.gif",
+    "category": "Importado de WhatsApp 📱"
+  },
+  {
+    "id": "wa-1776178802442-37",
+    "name": "♡Bolso De Rayas Hello Y Kuromi ♡",
+    "mayor": 0,
+    "detal": 0,
+    "image": "images/product_wa-1776178802442-37.gif",
+    "category": "Importado de WhatsApp 📱"
+  },
+  {
+    "id": "wa-1776178802442-38",
+    "name": "♡Libreta Corazón Lentejuelas ♡",
+    "mayor": 0,
+    "detal": 0,
+    "image": "images/product_wa-1776178802442-38.gif",
+    "category": "Importado de WhatsApp 📱"
+  },
+  {
+    "id": "wa-1776178802442-39",
+    "name": "♡Mini Block Notas Donita ♡",
+    "mayor": 0,
+    "detal": 0,
+    "image": "images/product_wa-1776178802442-39.gif",
+    "category": "Importado de WhatsApp 📱"
   }
 ]

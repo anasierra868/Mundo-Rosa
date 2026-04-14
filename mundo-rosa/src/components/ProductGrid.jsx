@@ -35,9 +35,12 @@ const ICON_MAP = {
   'fan': '🌬️',
   'reloj': '⌚',
   'smartwatch': '⌚',
-  'estuche': '📦',
   'kit': '📦',
-  'set': '📦'
+  'set': '📦',
+  'medias': '🧦',
+  'tobillera': '🧦',
+  'baleta': '🧦',
+  'pares': '🧦'
 };
 
 // Palabras que debemos ignorar al crear categorías automáticas
@@ -48,9 +51,19 @@ function ProductGrid({
   cart,
   onAddToCart,
   onRemoveOne,
-  formatCurrency
+  formatCurrency,
+  isSyncing,
+  priceType
 }) {
   const categoryRefs = useRef({});
+  const scrollRef = useRef(null);
+
+  const scroll = (direction) => {
+    if (scrollRef.current) {
+      const scrollAmount = direction === 'left' ? -250 : 250;
+      scrollRef.current.scrollBy({ left: scrollAmount, behavior: 'smooth' });
+    }
+  };
 
   // Lógica de Categorización Dinámica
   const { groupedProducts, categoriesList } = useMemo(() => {
@@ -63,30 +76,47 @@ function ProductGrid({
       let selectedCategory = null;
       let selectedIcon = '🎁';
 
-      // 1. Buscar en el mapa de iconos conocidos
-      for (const [keyword, icon] of Object.entries(ICON_MAP)) {
-        if (nameLower.includes(keyword)) {
-          selectedCategory = keyword.charAt(0).toUpperCase() + keyword.slice(1);
-          selectedIcon = icon;
-          // Especial para "Múltiples palabras"
-          if (keyword === 'manos libres') selectedCategory = 'Bolsos';
-          if (keyword === 'sol de janeiro') selectedCategory = 'Splash & Perfumes';
-          break;
-        }
-      }
-
-      // 2. Si no hay coincidencia, tomar la primera palabra significativa
-      if (!selectedCategory) {
-        const words = product.name.split(' ').filter(w => w.length > 2 && !STOP_WORDS.includes(w.toLowerCase()));
-        if (words.length > 0) {
-          selectedCategory = words[0].charAt(0).toUpperCase() + words[0].slice(1).toLowerCase();
+      // 1. Prioritize AI Category if it exists
+      // Extraer Categoría e Icono del producto (Manejo de IA y Manual)
+      if (product.category) {
+        const rawCategory = product.category.trim();
+        // Regex para detectar un emoji al final (funciona con la mayoría de emojis modernos)
+        const emojiMatch = rawCategory.match(/(\u00a9|\u00ae|[\u2000-\u3300]|\ud83c[\ud000-\udfff]|\ud83d[\ud000-\udfff]|\ud83e[\ud000-\udfff])$/);
+        
+        if (emojiMatch) {
+            selectedIcon = emojiMatch[0];
+            selectedCategory = rawCategory.replace(selectedIcon, '').trim();
         } else {
-          selectedCategory = 'Otros';
+            selectedCategory = rawCategory;
+            selectedIcon = '🎁';
         }
       }
 
-      // 3. Normalizar nombre (Limpiar plurales simples o variaciones comunes si fuera necesario)
-      // Por ahora lo dejamos tal cual o con un mapeo simple de visualización
+      // 2. Unificación Alfabética v5.1: Máximo Respeto a las Categorías del Admin
+      // Si la categoría ya existe (Manual o IA), la respetamos y no la sobreescribimos.
+      if (!selectedCategory) {
+        for (const [keyword, icon] of Object.entries(ICON_MAP)) {
+          if (nameLower.includes(keyword)) {
+            selectedCategory = keyword.charAt(0).toUpperCase() + keyword.slice(1);
+            selectedIcon = icon;
+            // Solo corregimos nombres genéricos a marcas conocidas si no hay categoría
+            if (keyword === 'manos libres') selectedCategory = 'Bolsos';
+            if (keyword === 'sol de janeiro') selectedCategory = 'Splash & Perfumes';
+            break;
+          }
+        }
+
+        if (!selectedCategory) {
+          // Fallback: usar la primera palabra del nombre
+          const words = product.name.trim().split(/\s+/).filter(w => !STOP_WORDS.includes(w.toLowerCase()));
+          if (words.length > 0) {
+            selectedCategory = words[0].charAt(0).toUpperCase() + words[0].slice(1).toLowerCase();
+          } else {
+            selectedCategory = 'Otros';
+          }
+        }
+      }
+
       const displayCategory = selectedCategory;
 
       if (!groups[displayCategory]) {
@@ -102,14 +132,15 @@ function ProductGrid({
       categoriesSet.add(displayCategory);
     });
 
-    // Ordenar categorías: primero las conocidas, luego las automáticas alfabéticamente
-    const sortedCategories = Array.from(categoriesSet).sort((a, b) => {
-      const iconA = categoriesDataMap[a].icon;
-      const iconB = categoriesDataMap[b].icon;
-      if (iconA !== '🎁' && iconB === '🎁') return -1;
-      if (iconA === '🎁' && iconB !== '🎁') return 1;
-      return a.localeCompare(b);
-    });
+    // Ordenar categorías: Orden Alfabético Estricto A-Z (Sin excepciones para 'Nuevos' ni íconos)
+    const sortedCategories = Array.from(categoriesSet).sort((a, b) => 
+      a.localeCompare(b, 'es', { sensitivity: 'base' })
+    );
+
+    // Ordenar alfabéticamente los productos DENTRO de cada categoría (A, A1, A2...)
+    for (const cat in groups) {
+      groups[cat].sort((p1, p2) => p1.name.trim().localeCompare(p2.name.trim(), 'es', { numeric: true, sensitivity: 'base' }));
+    }
 
     return {
       groupedProducts: groups,
@@ -133,22 +164,36 @@ function ProductGrid({
     }
   };
 
+  if (isSyncing) {
+    return (
+      <div className="sync-overlay-main">
+        <div className="spinner"></div>
+        <h2>Sincronizando Catálogo...</h2>
+        <p>Estamos optimizando y guardando tus productos en la nube. Por favor espera un momento.</p>
+      </div>
+    );
+  }
+
   return (
     <main className="container">
-      {/* Barra de Navegación Dinámica */}
-      <div className="category-nav-wrapper">
-        <div className="category-nav container">
-          {categoriesList.map(cat => (
-            <button 
-              key={cat.id} 
-              className="category-tab"
-              onClick={() => scrollToCategory(cat.id)}
-            >
-              <span className="tab-icon">{cat.icon}</span>
-              <span className="tab-name">{cat.name}</span>
-            </button>
-          ))}
+      {/* Barra de Navegación Dinámica (Fila Deslizable) */}
+      <div className="category-nav-outer">
+        <button className="nav-arrow left" onClick={() => scroll('left')}>‹</button>
+        <div className="category-nav-wrapper">
+          <div className="category-nav" ref={scrollRef}>
+            {categoriesList.map(cat => (
+              <button 
+                key={cat.id} 
+                className="category-tab"
+                onClick={() => scrollToCategory(cat.id)}
+              >
+                <span className="tab-icon">{cat.icon}</span>
+                <span className="tab-name">{cat.name}</span>
+              </button>
+            ))}
+          </div>
         </div>
+        <button className="nav-arrow right" onClick={() => scroll('right')}>›</button>
       </div>
 
       {/* Renderizado de Secciones Dinámicas */}
@@ -170,8 +215,9 @@ function ProductGrid({
 
             <div className="catalog-grid">
               {categoryProducts.map(product => {
-                const cartItem = cart.find(i => i.id === product.id);
-                const quantity = cartItem ? cartItem.quantity : 0;
+                const quantity = cart
+                  .filter(i => i.id === product.id)
+                  .reduce((acc, item) => acc + item.quantity, 0);
                 return (
                   <ProductCard 
                     key={product.id} 
@@ -180,6 +226,7 @@ function ProductGrid({
                     onAddToCart={onAddToCart}
                     onRemoveOne={onRemoveOne}
                     formatCurrency={formatCurrency}
+                    priceType={priceType}
                   />
                 );
               })}

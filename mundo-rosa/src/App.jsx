@@ -8,44 +8,132 @@ import Hero from './components/Hero';
 import ProductGrid from './components/ProductGrid';
 import CartModal from './components/CartModal';
 import PricingModal from './components/PricingModal';
+import AdminPanel from './components/AdminPanel';
+import OrderQueue from './components/OrderQueue';
+import AuthModal from './components/AuthModal';
+import { loadLocalProducts, onOrdersUpdate, onAllPaymentsUpdate } from './utils/db';
 
 function App() {
   const [products, setProducts] = useState([]);
-  const [cart, setCart] = useState([]);
+  const [cart, setCart] = useState(() => {
+    const saved = localStorage.getItem('MUNDOROSA_CART');
+    return saved ? JSON.parse(saved) : [];
+  });
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [firebaseConfig, setFirebaseConfig] = useState(localStorage.getItem('FIREBASE_CONFIG') || '');
 
   // Pricing flow state
-  const [priceType, setPriceType] = useState(null); // null = not yet chosen
+  const [priceType, setPriceType] = useState(() => {
+    return localStorage.getItem('MUNDOROSA_PRICE_TYPE') || null;
+  });
   const [isPricingModalOpen, setIsPricingModalOpen] = useState(false);
   const [pendingProduct, setPendingProduct] = useState(null); // product waiting for price decision
+  const [separationCount, setSeparationCount] = useState(() => {
+    const saved = localStorage.getItem('MUNDOROSA_SEPARATION_COUNT');
+    return saved ? parseInt(saved) : 0;
+  });
+
+  // Admin state
+  const [isAdminOpen, setIsAdminOpen] = useState(false);
+  const [isWarehouseOpen, setIsWarehouseOpen] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
+  
+  // Auth state
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [pendingAction, setPendingAction] = useState(null); // 'admin' or 'warehouse'
+
+  // REAL-TIME SHARED STATE v12.0
+  const [orders, setOrders] = useState([]);
+  const [allPayments, setAllPayments] = useState([]);
+
+  const sortProducts = (list) => {
+    return [...list].sort((a, b) => 
+      (a.name || "").localeCompare((b.name || ""), 'es', { numeric: true, sensitivity: 'base' })
+    );
+  };
 
   useEffect(() => {
     if (isConfigured && db) {
       console.log("☁️ Cargando catálogo desde Firestore...");
       const q = query(collection(db, "products"));
-      const unsubscribe = onSnapshot(q, (querySnapshot) => {
+      const unsubscribeCatalog = onSnapshot(q, (querySnapshot) => {
+        if (isSyncing) return; // Silent mode during bulk operations
         const productArray = [];
         querySnapshot.forEach((doc) => {
           productArray.push({ id: doc.id, ...doc.data() });
         });
-        setProducts(productArray);
+        setProducts(sortProducts(productArray));
       }, (error) => {
         console.error("Error subscribiendo a Firestore:", error);
         fetchLocalCatalog();
       });
-      return () => unsubscribe();
+
+      // SYNC ORDERS & PAYMENTS (Global Listeners)
+      const unsubscribeOrders = onOrdersUpdate((liveOrders) => {
+        setOrders(liveOrders);
+        console.log("📦 Órdenes actualizadas:", liveOrders.length);
+      });
+
+      const unsubscribePayments = onAllPaymentsUpdate((livePayments) => {
+        setAllPayments(livePayments);
+        console.log("💰 Pagos actualizados:", livePayments.length);
+      });
+
+      return () => {
+        unsubscribeCatalog();
+        unsubscribeOrders();
+        unsubscribePayments();
+      };
     } else {
       fetchLocalCatalog();
     }
   }, []);
 
+  // Keyboard shortcut listener for Ctrl + Alt + A
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.ctrlKey && e.altKey && e.key.toLowerCase() === 'a') {
+        e.preventDefault();
+        checkAuthAndOpen('admin');
+        console.log("🛠️ Admin Panel Auth Requested");
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+  // Sync Cart to LocalStorage
+  useEffect(() => {
+    localStorage.setItem('MUNDOROSA_CART', JSON.stringify(cart));
+    localStorage.setItem('MUNDOROSA_PRICE_TYPE', priceType || '');
+    localStorage.setItem('MUNDOROSA_SEPARATION_COUNT', separationCount.toString());
+  }, [cart, priceType, separationCount]);
+
+  const checkAuthAndOpen = (action) => {
+    const isAuth = sessionStorage.getItem('MUNDOROSA_LOGGED_IN') === 'true';
+    if (isAuth) {
+      if (action === 'admin') setIsAdminOpen(true);
+      if (action === 'warehouse') setIsWarehouseOpen(true);
+    } else {
+      setPendingAction(action);
+      setIsAuthModalOpen(true);
+    }
+  };
+
+  const handleAuthenticated = () => {
+    setIsAuthModalOpen(false);
+    if (pendingAction === 'admin') setIsAdminOpen(true);
+    if (pendingAction === 'warehouse') setIsWarehouseOpen(true);
+    setPendingAction(null);
+  };
+
   const fetchLocalCatalog = () => {
     console.log("📂 Cargando catálogo local (JSON)...");
-    fetch(`${import.meta.env.BASE_URL}catalog.json`)
+    fetch(`${import.meta.env.BASE_URL}catalogo.json`)
       .then(res => res.json())
       .then(data => {
-        setProducts(Array.isArray(data) ? data : []);
+        const list = Array.isArray(data) ? data : [];
+        setProducts(sortProducts(list));
       })
       .catch(err => {
         console.error("Error loading catalog:", err);
@@ -77,30 +165,44 @@ function App() {
 
   const commitToCart = (product, quantity, type) => {
     setCart(prev => {
-      const existing = prev.find(item => item.id === product.id);
+      // Find item with same ID that is NOT yet separated
+      const existingNew = prev.find(item => item.id === product.id && !item.isSeparated);
       const priceToUse = type === 'mayor' ? product.mayor : product.detal;
 
-      if (existing) {
+      if (existingNew) {
         return prev.map(item =>
-          item.id === product.id
+          (item.id === product.id && !item.isSeparated)
             ? { ...item, quantity: item.quantity + quantity, price: priceToUse }
             : item
         );
       }
-      return [...prev, { ...product, quantity, price: priceToUse }];
+      // If it doesn't exist as "New", add it as a new entry (even if there are "Separated" versions)
+      return [...prev, { ...product, quantity, price: priceToUse, isSeparated: false }];
     });
   };
 
   const removeFromCart = (id) => {
+    // Remove all lots for this product ID
     setCart(prev => prev.filter(item => item.id !== id));
   };
 
-  // Reduce quantity by 1; if it reaches 0, remove from cart
   const removeOneFromCart = (id) => {
-    setCart(prev => prev
-      .map(item => item.id === id ? { ...item, quantity: item.quantity - 1 } : item)
-      .filter(item => item.quantity > 0)
-    );
+    setCart(prev => {
+      // Check if there is a "New" one (not separated)
+      const hasNew = prev.some(item => item.id === id && !item.isSeparated);
+      
+      if (hasNew) {
+        // Priority: remove from the "New" lot first
+        return prev
+          .map(item => (item.id === id && !item.isSeparated) ? { ...item, quantity: item.quantity - 1 } : item)
+          .filter(item => item.quantity > 0);
+      } else {
+        // Only "Separated" items exist; decrement from the first one found
+        return prev
+          .map(item => item.id === id ? { ...item, quantity: item.quantity - 1 } : item)
+          .filter(item => item.quantity > 0);
+      }
+    });
   };
 
   const cartTotal = cart.reduce((acc, item) => acc + (item.price * item.quantity), 0);
@@ -113,34 +215,43 @@ function App() {
     }).format(amount || 0);
   };
 
-  const handleCheckoutSuccess = () => {
+  const handleSeparateItems = () => {
+    const newItems = cart.filter(item => !item.isSeparated);
+    if (newItems.length === 0) return alert("❌ No hay ítems nuevos para separar.");
+
     const tipoLabel = priceType === 'mayor' ? 'Por Mayor' : 'Al Detal';
-    const itemsText = cart.map(item =>
-      `*${item.quantity}x* ${item.name}\n   _Subtotal: ${formatCurrency(item.price * item.quantity)}_`
+    const currentSeparation = separationCount + 1;
+    
+    const itemsText = newItems.map(item =>
+      `*${item.quantity}x* ${item.name} (${formatCurrency(item.price)} c/u)\n   💰 _Subtotal: ${formatCurrency(item.price * item.quantity)}_`
     ).join('\n\n');
 
     const text =
-      `💖 *COTIZACIÓN - MUNDO ROSA* 💖\n` +
-      `----------------------------------\n\n` +
+      `✨ *SEPARADO #${currentSeparation} - MUNDO ROSA* ✨\n` +
+      `----------------------------------\n` +
+      `📦 _Solo productos nuevos añadidos:_\n\n` +
       itemsText +
       `\n\n----------------------------------\n` +
-      `💰 *TOTAL A PAGAR: ${formatCurrency(cartTotal)}*\n` +
+      `💰 *TOTAL DE ESTE SEPARADO: ${formatCurrency(newItems.reduce((a, b) => a + (b.price * b.quantity), 0))}*\n` +
+      `💵 *TOTAL ACUMULADO DEL PEDIDO: ${formatCurrency(cartTotal)}*\n` +
       `Tipo de precio: _${tipoLabel}_\n\n` +
-      `⚠️ _La cotización enviada estará sujeta a verificación por parte de nuestras asesoras._`;
+      `⚠️ _La asesora verificará y separará estos ítems._`;
 
-    // Copy to clipboard
     navigator.clipboard.writeText(text).then(() => {
-      // Reset pricing for new quote
-      setCart([]);
-      setPriceType(null);
-      setIsCartOpen(false);
-    }).catch(err => {
-      console.error('Error copying text:', err);
-      // Fallback: Just reset if copy fails (unlikely)
-      setCart([]);
-      setPriceType(null);
+      // Mark as separated but keep in cart
+      setCart(prev => prev.map(item => ({ ...item, isSeparated: true })));
+      setSeparationCount(currentSeparation);
       setIsCartOpen(false);
     });
+  };
+
+  const handleClearCart = () => {
+    if (confirm("⚠️ ¿Estás seguro de que deseas LIMPIAR TODO EL CARRITO? Se perderán todos los productos actuales.")) {
+      setCart([]);
+      setPriceType(null);
+      setSeparationCount(0);
+      setIsCartOpen(false);
+    }
   };
 
   return (
@@ -148,6 +259,8 @@ function App() {
       <Header
         cartCount={cart.reduce((a, b) => a + b.quantity, 0)}
         onCartOpen={() => setIsCartOpen(true)}
+        onAdminOpen={() => checkAuthAndOpen('admin')}
+        onWarehouseOpen={() => checkAuthAndOpen('warehouse')}
         isConfigured={isConfigured}
       />
 
@@ -159,6 +272,8 @@ function App() {
         onAddToCart={handleAddToCart}
         onRemoveOne={removeOneFromCart}
         formatCurrency={formatCurrency}
+        isSyncing={isSyncing}
+        priceType={priceType}
       />
 
       <PricingModal
@@ -172,17 +287,45 @@ function App() {
         isOpen={isCartOpen}
         onClose={() => setIsCartOpen(false)}
         onRemoveItem={removeFromCart}
-        onCheckout={handleCheckoutSuccess}
+        onSeparate={handleSeparateItems}
+        onClearCart={handleClearCart}
         formatCurrency={formatCurrency}
         cartTotal={cartTotal}
         priceType={priceType}
       />
 
+      <AdminPanel 
+        isOpen={isAdminOpen} 
+        onClose={() => setIsAdminOpen(false)} 
+        currentCatalog={products}
+        onUpdateCatalog={(newCatalog) => setProducts(newCatalog)}
+        onSyncingStatus={setIsSyncing}
+        orders={orders}
+        allPayments={allPayments}
+      />
+
       <footer>
         <div className="container">
+          <div className="logo" onClick={() => checkAuthAndOpen('admin')} style={{ cursor: 'pointer' }}>
+            MUNDO ROSA <span style={{fontSize: '0.6rem', opacity: 0.5, marginLeft: '5px', verticalAlign: 'middle'}}>v16.7.2</span>
+          </div>
           <p>&copy; {new Date().getFullYear()} MUNDO ROSA - Hecho con amor 💖</p>
         </div>
       </footer>
+      <OrderQueue
+        isOpen={isWarehouseOpen}
+        onClose={() => setIsWarehouseOpen(false)}
+        formatCurrency={formatCurrency}
+        catalog={products}
+        orders={orders}
+        allPayments={allPayments}
+      />
+      
+      <AuthModal 
+        isOpen={isAuthModalOpen}
+        onClose={() => setIsAuthModalOpen(false)}
+        onAuthenticate={handleAuthenticated}
+      />
     </div>
   );
 }

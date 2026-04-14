@@ -1,18 +1,24 @@
 import React, { useState } from 'react';
 
-function CartModal({ cart, isOpen, onClose, onCheckout, onRemoveItem, formatCurrency, cartTotal, priceType }) {
-  const [copied, setCopied] = useState(false);
+function CartModal({ cart, isOpen, onClose, onSeparate, onClearCart, onRemoveItem, formatCurrency, cartTotal, priceType }) {
+  const [copiedType, setCopiedType] = useState(null); // 'separate' or 'final'
 
   if (!isOpen) return null;
 
-  const handleCopy = () => {
-    onCheckout(); // This now formats text, copies to clipboard, and resets state in App.jsx
-    setCopied(true);
+  const handleSeparate = () => {
+    onSeparate();
+    setCopiedType('separate');
     setTimeout(() => {
-      setCopied(false);
+      setCopiedType(null);
       onClose();
     }, 3000);
   };
+
+  const handleClear = () => {
+    onClearCart();
+  };
+
+  const newItemsCount = cart.filter(item => !item.isSeparated).length;
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -30,10 +36,17 @@ function CartModal({ cart, isOpen, onClose, onCheckout, onRemoveItem, formatCurr
           ) : (
             cart.map(item => (
               <div key={item.id} className="cart-item">
-                <img src={item.image} className="cart-item-img" alt={item.name} />
+                <div style={{ position: 'relative' }}>
+                  <img src={item.image} className="cart-item-img" alt={item.name} decoding="async" loading="lazy" />
+                  {item.isSeparated ? (
+                    <span className="item-status-badge separated">SEPARADO ✅</span>
+                  ) : (
+                    <span className="item-status-badge new">NUEVO 🛒</span>
+                  )}
+                </div>
                 <div className="cart-item-info">
                   <strong>{item.name}</strong>
-                  <small>{item.quantity} x {formatCurrency(item.price)}</small>
+                  <small>{item.quantity} x {formatCurrency(item.price)} = <strong>{formatCurrency(item.quantity * item.price)}</strong></small>
                   <br />
                   <button
                     onClick={() => onRemoveItem(item.id)}
@@ -51,7 +64,7 @@ function CartModal({ cart, isOpen, onClose, onCheckout, onRemoveItem, formatCurr
           <div className="cart-total-section">
             <div className="cart-total">
               <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', marginBottom: '5px' }}>
-                <span>Total</span>
+                <span>Total Acumulado</span>
                 <span>{formatCurrency(cartTotal)}</span>
               </div>
               <div style={{ textAlign: 'right', fontSize: '0.85rem', color: '#666', width: '100%' }}>
@@ -59,13 +72,23 @@ function CartModal({ cart, isOpen, onClose, onCheckout, onRemoveItem, formatCurr
               </div>
             </div>
 
-            <button className="whatsapp-btn copy-quote-btn" onClick={handleCopy}>
-              {copied ? '✅ ¡Copiado! Pégalo en WhatsApp' : '📋 Copiar pedido como texto'}
-            </button>
+            <div className="cart-actions-dual">
+              <button 
+                className={`whatsapp-btn separate-btn ${newItemsCount === 0 ? 'disabled' : ''}`} 
+                onClick={handleSeparate}
+                disabled={newItemsCount === 0}
+              >
+                {copiedType === 'separate' ? '✅ ¡Copiado!' : `📂 Separar Nuevos (${newItemsCount})`}
+              </button>
 
-            {copied && (
-              <p className="copy-hint">
-                ¡Texto copiado! Ahora solo ve al chat de WhatsApp y dale a "Pegar".
+              <button className="whatsapp-btn final-btn" style={{ background: 'linear-gradient(135deg, #ef4444, #b91c1c)' }} onClick={handleClear}>
+                🗑️ Limpiar Carrito
+              </button>
+            </div>
+
+            {copiedType && (
+              <p className="copy-hint" style={{ color: '#059669', fontWeight: 'bold' }}>
+                ¡Pedido parcial copiado! Pégalo en WhatsApp.
               </p>
             )}
           </div>

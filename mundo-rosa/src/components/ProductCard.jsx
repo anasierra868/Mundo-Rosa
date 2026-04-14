@@ -1,6 +1,6 @@
 import React from 'react';
 
-function ProductCard({ product, quantity, onAddToCart, onRemoveOne, formatCurrency }) {
+function ProductCard({ product, quantity, onAddToCart, onRemoveOne, formatCurrency, priceType }) {
   return (
     <div className="product-card">
       <div className="product-image-container">
@@ -26,7 +26,18 @@ function ProductCard({ product, quantity, onAddToCart, onRemoveOne, formatCurren
         {quantity > 0 ? (
           <div className="qty-controls">
             <button className="qty-btn qty-minus" onClick={() => onRemoveOne(product.id)}>−</button>
-            <span className="qty-display">{quantity} en pedido</span>
+            <span className="qty-display">
+              {priceType === null ? (
+                `${quantity} en pedido`
+              ) : (
+                <>
+                  <div style={{ fontSize: '1rem', fontWeight: 'bold', opacity: 0.9 }}>{quantity} x</div>
+                  <div style={{ fontSize: '0.95rem', fontWeight: '800' }}>
+                    {formatCurrency(quantity * (priceType === 'mayor' ? product.mayor : product.detal))}
+                  </div>
+                </>
+              )}
+            </span>
             <button className="qty-btn qty-plus" onClick={() => onAddToCart(product)}>+</button>
           </div>
         ) : (
