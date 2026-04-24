@@ -1,17 +1,28 @@
-import React from 'react';
-
-function Header({ cartCount, onCartOpen, onAdminOpen, onWarehouseOpen, isConfigured }) {
+function Header({ cartCount, onCartOpen, globalSearch, onSearchChange }) {
   return (
     <header>
       <div className="container">
         <nav>
-          <div className="logo" onClick={onAdminOpen} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            MUNDO ROSA 
+          <div className="header-search-container">
+            <input 
+              type="text" 
+              placeholder="🔍 Buscar productos..." 
+              value={globalSearch}
+              onChange={(e) => onSearchChange(e.target.value)}
+              className="global-search-input"
+            />
+            {globalSearch && (
+              <button 
+                className="clear-search-btn" 
+                onClick={() => onSearchChange('')}
+                title="Limpiar búsqueda"
+              >
+                ✕
+              </button>
+            )}
           </div>
+
           <div className="nav-actions">
-            <button className="warehouse-btn" onClick={onWarehouseOpen}>
-              📦 Almacén
-            </button>
             <button className="cart-icon" onClick={onCartOpen}>
               🛒 {cartCount > 0 && <span className="cart-count">{cartCount}</span>}
             </button>

@@ -65,81 +65,72 @@ function ProductGrid({
     }
   };
 
-  // Lógica de Categorización Dinámica
+  // Lógica de Categorización Dinámica OPTIMIZADA v2
   const { groupedProducts, categoriesList } = useMemo(() => {
     const groups = {};
     const categoriesSet = new Set();
     const categoriesDataMap = {};
 
     products.forEach(product => {
-      const nameLower = product.name.toLowerCase();
       let selectedCategory = null;
-      let selectedIcon = '🎁';
+      let selectedIcon = ''; // SIGUE VACÍO: Solo aparecerá si tú pones un emoji manual
 
-      // 1. Prioritize AI Category if it exists
-      // Extraer Categoría e Icono del producto (Manejo de IA y Manual)
       if (product.category) {
+        // Producto YA categorizado: proceso directo, sin buscar palabras clave
         const rawCategory = product.category.trim();
-        // Regex para detectar un emoji al final (funciona con la mayoría de emojis modernos)
         const emojiMatch = rawCategory.match(/(\u00a9|\u00ae|[\u2000-\u3300]|\ud83c[\ud000-\udfff]|\ud83d[\ud000-\udfff]|\ud83e[\ud000-\udfff])$/);
-        
         if (emojiMatch) {
-            selectedIcon = emojiMatch[0];
-            selectedCategory = rawCategory.replace(selectedIcon, '').trim();
+          selectedIcon = emojiMatch[0];
+          selectedCategory = rawCategory.replace(selectedIcon, '').trim();
         } else {
-            selectedCategory = rawCategory;
-            selectedIcon = '🎁';
+          selectedCategory = rawCategory;
+          selectedIcon = '';
         }
-      }
-
-      // 2. Unificación Alfabética v5.1: Máximo Respeto a las Categorías del Admin
-      // Si la categoría ya existe (Manual o IA), la respetamos y no la sobreescribimos.
-      if (!selectedCategory) {
+      } else {
+        // Sin categoría: buscar por palabras clave (caso minoritario)
+        const nameLower = product.name.toLowerCase();
         for (const [keyword, icon] of Object.entries(ICON_MAP)) {
           if (nameLower.includes(keyword)) {
             selectedCategory = keyword.charAt(0).toUpperCase() + keyword.slice(1);
             selectedIcon = icon;
-            // Solo corregimos nombres genéricos a marcas conocidas si no hay categoría
             if (keyword === 'manos libres') selectedCategory = 'Bolsos';
             if (keyword === 'sol de janeiro') selectedCategory = 'Splash & Perfumes';
             break;
           }
         }
-
         if (!selectedCategory) {
-          // Fallback: usar la primera palabra del nombre
           const words = product.name.trim().split(/\s+/).filter(w => !STOP_WORDS.includes(w.toLowerCase()));
-          if (words.length > 0) {
-            selectedCategory = words[0].charAt(0).toUpperCase() + words[0].slice(1).toLowerCase();
-          } else {
-            selectedCategory = 'Otros';
-          }
+          selectedCategory = words.length > 0
+            ? words[0].charAt(0).toUpperCase() + words[0].slice(1).toLowerCase()
+            : 'Otros';
         }
       }
 
-      const displayCategory = selectedCategory;
-
-      if (!groups[displayCategory]) {
-        groups[displayCategory] = [];
-        categoriesDataMap[displayCategory] = {
-          id: displayCategory.toLowerCase().replace(/\s+/g, '-'),
-          name: displayCategory,
+      if (!groups[selectedCategory]) {
+        groups[selectedCategory] = [];
+        categoriesDataMap[selectedCategory] = {
+          id: selectedCategory.toLowerCase().replace(/\s+/g, '-'),
+          name: selectedCategory,
           icon: selectedIcon
         };
       }
-      
-      groups[displayCategory].push(product);
-      categoriesSet.add(displayCategory);
+      groups[selectedCategory].push(product);
+      categoriesSet.add(selectedCategory);
     });
 
-    // Ordenar categorías: Orden Alfabético Estricto A-Z (Sin excepciones para 'Nuevos' ni íconos)
-    const sortedCategories = Array.from(categoriesSet).sort((a, b) => 
+    const sortedCategories = Array.from(categoriesSet).sort((a, b) =>
       a.localeCompare(b, 'es', { sensitivity: 'base' })
     );
 
-    // Ordenar alfabéticamente los productos DENTRO de cada categoría (A, A1, A2...)
+    // Ordenamiento interno rápido (comparación directa: 3-5x más veloz que localeCompare en PC)
     for (const cat in groups) {
-      groups[cat].sort((p1, p2) => p1.name.trim().localeCompare(p2.name.trim(), 'es', { numeric: true, sensitivity: 'base' }));
+      groups[cat].sort((p1, p2) => {
+        const a = (p1.name || '').trim().toLowerCase();
+        const b = (p2.name || '').trim().toLowerCase();
+        if (a < b) return -1;
+        if (a > b) return 1;
+        return 0;
+      });
     }
 
     return {
@@ -187,7 +178,7 @@ function ProductGrid({
                 className="category-tab"
                 onClick={() => scrollToCategory(cat.id)}
               >
-                <span className="tab-icon">{cat.icon}</span>
+                {cat.icon && <span className="tab-icon">{cat.icon}</span>}
                 <span className="tab-name">{cat.name}</span>
               </button>
             ))}
@@ -206,7 +197,7 @@ function ProductGrid({
             ref={el => categoryRefs.current[cat.id] = el}
           >
             <div className="category-header">
-              <span className="category-icon-bg">{cat.icon}</span>
+              {cat.icon && <span className="category-icon-bg">{cat.icon}</span>}
               <div>
                 <h2>{cat.name}</h2>
                 <div className="category-line"></div>

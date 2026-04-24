@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useMemo, memo } from 'react';
-import { loadLocalProducts, saveProduct, saveProductsBatch, deleteProduct, clearDB, toBase64, compressImage, createOrder, getOrdersCountForCustomer, getUniquePendingNames, addPayment, deletePayment } from '../utils/db';
+import { loadLocalProducts, saveProduct, saveProductsBatch, deleteProduct, clearDB, toBase64, compressImage, createOrder, getOrdersCountForCustomer, getUniquePendingNames, addPayment, deletePayment, updatePaymentGlobal, ADVISOR_CODES, startCustomerTimer, deleteCustomerTimer, onTimersUpdate, differentiateDuplicatesOnly, cleanupGlobalFormat } from '../utils/db';
 import html2canvas from 'html2canvas';
+import ExcelJS from 'exceljs';
+import { saveAs } from 'file-saver';
 
 // Sub-component for individual product rows to prevent full table re-renders v16.7
 const AdminProductRow = memo(({ product, onEdit, onDelete }) => {
@@ -79,6 +81,12 @@ const AdminPanel = ({ isOpen, onClose, currentCatalog, onUpdateCatalog, onSyncin
   const [customerName, setCustomerName] = useState('');
   const [isNewCustomer, setIsNewCustomer] = useState(false);
   const [paymentDate, setPaymentDate] = useState(new Date().toISOString().split('T')[0]);
+  const [importModeChoice, setImportModeChoice] = useState(null); // 'replace', 'append' or null
+  const [pendingImportData, setPendingImportData] = useState(null);
+  
+  // BODEGA SEARCH v5.5
+  const [custSearch, setCustSearch] = useState('');
+  const [isCustDropdownOpen, setIsCustDropdownOpen] = useState(false);
 
   // Derive active customers in real-time from orders prop v15.6
   const activeCustomers = useMemo(() => {
@@ -91,23 +99,221 @@ const AdminPanel = ({ isOpen, onClose, currentCatalog, onUpdateCatalog, onSyncin
     return Array.from(new Set(names)).filter(n => n.length > 0).sort();
   }, [orders]);
 
+  // v4.9: Universal normalization to ignore mangled data (YZ?, emojis, case)
+  const normalizeText = (text) => {
+    if (!text) return "";
+    return text.toString()
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "") // Remove accents
+      .replace(/[^a-z0-9 ]/g, " ")     // Replace special/mangled chars with spaces
+      .replace(/\s+/g, " ")            // Consolidate spaces
+      .trim();
+  };
+
+  const filteredActiveCustomers = useMemo(() => {
+    const term = normalizeText(custSearch);
+    if (!term) return activeCustomers;
+    return activeCustomers.filter(name => normalizeText(name).includes(term));
+  }, [activeCustomers, custSearch]);
+
+  const displayProducts = useMemo(() => {
+    const term = normalizeText(searchTerm);
+    const filtered = products.filter(p => {
+        if (!term) return true;
+        const targetName = normalizeText(p.name);
+        const targetCat = normalizeText(p.category);
+        return targetName.includes(term) || targetCat.includes(term);
+    });
+    
+    return [...filtered].sort((a, b) => 
+      (a.name || "").localeCompare((b.name || ""), 'es', { numeric: true, sensitivity: 'base' })
+    );
+  }, [products.length, searchTerm]);
+
   // CONSULTAR ABONOS v15.1
   const [showAbonosViewer, setShowAbonosViewer] = useState(false);
   const [abonosPassword, setAbonosPassword] = useState('');
   const [abonosUnlocked, setAbonosUnlocked] = useState(false);
+  const [editingAbonoId, setEditingAbonoId] = useState(null);
+  const [editingAmount, setEditingAmount] = useState('');
+  const [editAuthCode, setEditAuthCode] = useState('');
+
+  // TIMERS v2.15
+  const [showTimersModal, setShowTimersModal] = useState(false);
+  const [activeTimers, setActiveTimers] = useState([]);
+  const [timerTick, setTimerTick] = useState(0); // forces re-render every second
+
+  useEffect(() => {
+    if (!showTimersModal) return;
+    const unsub = onTimersUpdate(setActiveTimers);
+    return () => unsub();
+  }, [showTimersModal]);
+
+  useEffect(() => {
+    const interval = setInterval(() => setTimerTick(t => t + 1), 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Alarma de audio para timers expirados
+  const alarmedTimersRef = React.useRef(new Set());
+  useEffect(() => {
+    if (activeTimers.length === 0) return;
+    let playAlarm = false;
+    
+    activeTimers.forEach(timer => {
+        let remainingMs = timer.durationMs;
+        if (timer.startedAt) {
+            const startMs = timer.startedAt.seconds * 1000;
+            const elapsed = Date.now() - startMs;
+            remainingMs = Math.max(0, timer.durationMs - elapsed);
+        }
+        
+        if (remainingMs <= 0 && !alarmedTimersRef.current.has(timer.id)) {
+            alarmedTimersRef.current.add(timer.id);
+            playAlarm = true;
+        }
+    });
+
+    if (playAlarm) {
+        // 1. Sonido de Alerta v2.16
+        const audio = new Audio('https://actions.google.com/sounds/v1/alarms/digital_watch_alarm_long.ogg');
+        audio.play().catch(e => console.warn("Autoplay bloqueado:", e));
+
+        // 2. Voz Inteligente (Text-to-Speech)
+        // Buscamos el timer que acaba de expirar para leer su nombre/número
+        const expiredTimer = activeTimers.find(t => {
+            let rem = t.durationMs;
+            if (t.startedAt) {
+                const elapsed = Date.now() - (t.startedAt.seconds * 1000);
+                rem = t.durationMs - elapsed;
+            }
+            return rem <= 0;
+        });
+
+        if (expiredTimer && window.speechSynthesis) {
+            const rawName = (expiredTimer.customerName || "").toString().trim();
+            let voiceText = "";
+
+            // Lógica de detección de celular (solo dígitos)
+            if (/^\d+$/.test(rawName) && rawName.length >= 10) {
+                const d = rawName;
+                // Grupo 1 (Prefijo): 3, 0, 1
+                const p1 = `${d[0]}, ${d[1]}, ${d[2]}`; 
+                // Grupo 2: 6, 26
+                const p2 = `${d[3]}, ${d.slice(4,6)}`;
+                // Grupo 3: 36
+                const p3 = d.slice(6,8);
+                // Grupo 4: 58
+                const p4 = d.slice(8);
+                
+                voiceText = `Tiempo agotado para el cliente: ${p1}. . . ${p2}. . . ${p3}. . . ${p4}`;
+            } else {
+                voiceText = `Tiempo agotado para el cliente: ${rawName}`;
+            }
+
+            const utterance = new SpeechSynthesisUtterance(voiceText);
+            utterance.lang = 'es-ES';
+            utterance.rate = 0.85; // Velocidad ligeramente reducida para máxima claridad
+            utterance.pitch = 1.0;
+            window.speechSynthesis.speak(utterance);
+        }
+    }
+  }, [timerTick, activeTimers]);
+
+  const getTimerRemaining = (timer) => {
+    if (!timer.startedAt) return timer.durationMs;
+    const startMs = timer.startedAt.seconds * 1000;
+    const elapsed = Date.now() - startMs;
+    return Math.max(0, timer.durationMs - elapsed);
+  };
+
+  const formatTimerDisplay = (ms) => {
+    if (ms <= 0) return null; // expired
+    const totalSec = Math.floor(ms / 1000);
+    const m = Math.floor(totalSec / 60).toString().padStart(2, '0');
+    const s = (totalSec % 60).toString().padStart(2, '0');
+    return `${m}:${s}`;
+  };
 
   const [newName, setNewName] = useState('');
   const [newMayor, setNewMayor] = useState('');
   const [newDetal, setNewDetal] = useState('');
 
-  // STABLE SORT v16.7: Only re-sort if total length changes or search changes.
-  // This prevents jumping while the user edits a specific product's name.
-  const displayProducts = useMemo(() => {
-    const filtered = products.filter(p => (p.name || "").toLowerCase().includes(searchTerm.toLowerCase()));
-    return [...filtered].sort((a, b) => 
-      (a.name || "").localeCompare((b.name || ""), 'es', { numeric: true, sensitivity: 'base' })
-    );
-  }, [products.length, searchTerm]);
+  // EXPORT TO EXCEL v2.14
+  const exportAbonosToExcel = async () => {
+    if (!allPayments || allPayments.length === 0) return alert('❌ No hay datos para exportar.');
+    
+    try {
+      const workbook = new ExcelJS.Workbook();
+      const worksheet = workbook.addWorksheet('Abonos Mundo Rosa');
+
+      // Define columns
+      worksheet.columns = [
+        { header: 'FECHA', key: 'date', width: 15 },
+        { header: 'HORA', key: 'time', width: 12 },
+        { header: 'ASESOR', key: 'advisor', width: 25 },
+        { header: 'CLIENTE', key: 'customer', width: 30 },
+        { header: 'VALOR', key: 'amount', width: 18 }
+      ];
+
+      // Style Header
+      const headerRow = worksheet.getRow(1);
+      headerRow.eachCell((cell) => {
+        cell.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 12 };
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF38BDF8' } };
+        cell.alignment = { vertical: 'middle', horizontal: 'center' };
+        cell.border = {
+          top: { style: 'thin' }, left: { style: 'thin' },
+          bottom: { style: 'thin' }, right: { style: 'thin' }
+        };
+      });
+      headerRow.height = 25;
+
+      // Add Data
+      let total = 0;
+      [...allPayments].reverse().forEach(p => {
+        const formattedDate = (p.date || '').split('-').reverse().join('/');
+        const formattedTime = p.createdAt ? (p.createdAt.toDate ? p.createdAt.toDate() : new Date(p.createdAt.seconds * 1000)).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }) : 'S/H';
+        
+        total += parseInt(p.amount || 0);
+
+        const row = worksheet.addRow({
+          date: formattedDate,
+          time: formattedTime,
+          advisor: (p.advisorName || 'S/A').toUpperCase(),
+          customer: (p.customerName || 'S/C').toUpperCase(),
+          amount: parseInt(p.amount || 0)
+        });
+
+        // Format Amount cell
+        row.getCell('amount').numFmt = '"$"#,##0';
+        row.alignment = { vertical: 'middle' };
+      });
+
+      // Add TOTAL Row
+      worksheet.addRow([]); // Blank
+      const totalRow = worksheet.addRow({
+        customer: 'TOTAL RECAUDADO:',
+        amount: total
+      });
+      totalRow.getCell('customer').font = { bold: true };
+      totalRow.getCell('amount').font = { bold: true, color: { argb: 'FF10B981' } };
+      totalRow.getCell('amount').numFmt = '"$"#,##0';
+      totalRow.getCell('amount').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFDCFCE7' } };
+
+      // Generate Buffer and Download
+      const buffer = await workbook.xlsx.writeBuffer();
+      const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      const now = new Date();
+      const timestamp = `${now.getDate()}_${now.getMonth() + 1}_${now.getFullYear()}`;
+      saveAs(blob, `Reporte_Abonos_MundoRosa_${timestamp}.xlsx`);
+
+    } catch (error) {
+      console.error("Error al exportar Excel:", error);
+      alert("❌ Ocurrió un error al generar el Excel.");
+    }
+  };
 
   const [newImage, setNewImage] = useState(null);
   const [newCategory, setNewCategory] = useState('Nuevos 🎁');
@@ -178,11 +384,19 @@ const AdminPanel = ({ isOpen, onClose, currentCatalog, onUpdateCatalog, onSyncin
     };
 
     await saveProduct(p);
-    setProducts(prev => sortProducts([p, ...prev]));
+    
+    // AUTOMATIZACIÓN: Diferenciar duplicados tras añadir producto nuevo v18.2
+    setProgress('✨ Limpiando duplicados y asignando referencias...');
+    await differentiateDuplicatesOnly();
+    
+    // Recargar productos frescos tras la diferenciación para ver los cambios de Ref.
+    const freshProducts = await loadLocalProducts();
+    setProducts(sortProducts(freshProducts));
+
     setIsProcessing(false);
     if (onSyncingStatus) onSyncingStatus(false);
     resetForm();
-    alert(`✅ ¡"${p.name}" añadido con éxito!`);
+    alert(`✅ ¡"${p.name}" añadido y catálogo organizado con éxito!`);
   };
 
   const resetForm = () => {
@@ -228,14 +442,35 @@ const AdminPanel = ({ isOpen, onClose, currentCatalog, onUpdateCatalog, onSyncin
     setSaveTimeout(newTimeout);
   };
 
-  const handleExport = () => {
-    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(products));
-    const downloadAnchorNode = document.createElement('a');
-    downloadAnchorNode.setAttribute("href", dataStr);
-    downloadAnchorNode.setAttribute("download", "catalogo.json");
-    document.body.appendChild(downloadAnchorNode);
-    downloadAnchorNode.click();
-    downloadAnchorNode.remove();
+  const handleExport = async () => {
+    try {
+      setProgress('⏳ Cargando catálogo completo...');
+      setIsProcessing(true);
+
+      // Always fetch fresh from Firestore for a complete export
+      const allProducts = await loadLocalProducts();
+      
+      if (!allProducts || allProducts.length === 0) {
+        alert('❌ No hay productos en el catálogo para exportar.');
+        return;
+      }
+
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(allProducts, null, 2));
+      const downloadAnchorNode = document.createElement('a');
+      downloadAnchorNode.setAttribute("href", dataStr);
+      downloadAnchorNode.setAttribute("download", `catalogo_${allProducts.length}productos_${new Date().toLocaleDateString('es-ES').replace(/\//g, '-')}.json`);
+      document.body.appendChild(downloadAnchorNode);
+      downloadAnchorNode.click();
+      downloadAnchorNode.remove();
+
+      setProgress(`✅ Exportados ${allProducts.length} productos correctamente.`);
+      setTimeout(() => setProgress(''), 3000);
+    } catch (err) {
+      console.error("Error al exportar:", err);
+      alert('❌ Error al exportar el catálogo.');
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   const handleImport = (e) => {
@@ -245,196 +480,89 @@ const AdminPanel = ({ isOpen, onClose, currentCatalog, onUpdateCatalog, onSyncin
     reader.onload = async (event) => {
       try {
         const imported = JSON.parse(event.target.result);
-        if (confirm(`¿Importar ${imported.length} productos? Reemplazará los cambios actuales en la Nube.\n\nADVERTENCIA: Tu catálogo pesa mucho (${(event.target.result.length / 1024 / 1024).toFixed(1)}MB). El sistema los comprimirá ahora para evitar bloqueos.`)) {
-          if (onSyncingStatus) onSyncingStatus(true);
-          setIsProcessing(true);
-          setProgress(`Optimizando 1/ ${imported.length} fotos...`);
-          
-          await clearDB();
-          
-          // Importante: No solo mandamos a Batch, ¡Primero Comprimimos!
-          const chunkSize = 10;
-          for (let i = 0; i < imported.length; i += chunkSize) {
-              const chunk = imported.slice(i, i + chunkSize);
-              setProgress(`Optimizando bloque de fotos ${Math.floor(i/chunkSize) + 1} de ${Math.ceil(imported.length/chunkSize)}...`);
-              
-              // Comprimir en paralelo el chunk antes de enviarlo
-              const optimizedChunk = await Promise.all(chunk.map(async p => {
-                  if (p.image && p.image.length > 50000) { // Si pesa mas de 50kb
-                      const newImg = await compressImage(p.image);
-                      return { ...p, image: newImg };
-                  }
-                  return p;
-              }));
-              
-              await saveProductsBatch(optimizedChunk);
-          }
-          
-          setIsProcessing(false);
-          if (onSyncingStatus) onSyncingStatus(false);
-          setProgress('');
-          alert('¡Sincronización completa con éxito! Tus 164 productos ahora son livianos y rápidos.');
-        }
+        if (!Array.isArray(imported)) throw new Error("El archivo no contiene una lista de productos válida.");
+        
+        setPendingImportData(imported);
+        setImportModeChoice('pending'); // Mostramos el modal de elección
       } catch (err) { 
           console.error(err);
-          alert('Error al leer el archivo JSON.'); 
-          setIsProcessing(false);
+          alert('Error al leer el archivo JSON: ' + err.message); 
       }
     };
     reader.readAsText(file);
+    e.target.value = null; // Reset input
   };
 
-  const handleBulkUpload = async (e) => {
-    const files = Array.from(e.target.files).filter(f => f.type.startsWith('image/'));
-    if (files.length === 0) return;
-    if (!apiKey) return alert('Configura primero tu API Key de Gemini Flash.');
+  const executeImport = async (mode) => {
+    if (!pendingImportData) return;
+    const items = pendingImportData;
+    setImportModeChoice(null); // Cerramos el modal
 
-    if (confirm(`Vas a subir ${files.length} imágenes. La IA extraerá precios.`)) {
-      if (onSyncingStatus) onSyncingStatus(true);
-      setIsProcessing(true);
-      const newBatch = [];
-      let count = 0;
+    if (onSyncingStatus) onSyncingStatus(true);
+    setIsProcessing(true);
+    setProducts([]); // v5.4: Limpieza agresiva de estado para liberar RAM inmediata
+    setProgress(`Iniciando importación en modo ${mode === 'replace' ? 'REEMPLAZO' : 'ANEXO'}...`);
 
-      for (let file of files) {
-        count++;
-        setProgress(`Procesando ${count}/${files.length}: ${file.name}`);
-        try {
-          const originalB64 = await toBase64(file);
-          const b64 = await compressImage(originalB64);
-          const prompt = `Analiza esta imagen. Extrae: {"name": "...", "mayor": ..., "detal": ..., "tags": "8 etiquetas"}. Retorna solo JSON puro.`;
-          const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${apiKey}`;
-          
-          const response = await fetch(url, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              contents: [{
-                parts: [
-                  { text: prompt },
-                  { inline_data: { mime_type: "image/jpeg", data: b64.split(',')[1] } }
-                ]
-              }]
-            })
-          });
-          
-          const data = await response.json();
-          let info;
-          try {
-            const content = data.candidates[0].content.parts[0].text.replace(/```json/g, '').replace(/```/g, '').trim();
-            info = JSON.parse(content);
-          } catch(err) { 
-            info = { name: file.name.split('.')[0], mayor: 0, detal: 0, tags: '' }; 
-          }
-
-          const product = {
-            id: 'p-' + Date.now() + '-' + count,
-            name: info.name,
-            mayor: parseInt(info.mayor) || 0,
-            detal: parseInt(info.detal) || 0,
-            image: b64,
-            tags: info.tags || '',
-            category: 'Nuevos 🎁'
-          };
-          await saveProduct(product);
-          newBatch.push(product);
-        } catch (e) { console.error(e); }
+    try {
+      if (mode === 'replace') {
+          await clearDB();
       }
-      
-      setProducts(prev => sortProducts([...newBatch, ...prev]));
+
+      // v5.3: BLINDAJE TOTAL DE MEMORIA - Carga Ultra-Lenta y Segura
+      const total = items.length;
+      let currentBatch = [];
+      const MAX_BATCH_SIZE = 3; // Lotes diminutos para evitar picos de RAM
+
+      for (let i = 0; i < total; i++) {
+          const p = items[i];
+          setProgress(`🛡️ Blindaje RAM: Procesando ${i + 1} de ${total}...`);
+          
+          let processedP = { ...p };
+          if (p.image && (p.image.length > 50000 || !p.image.includes('webp'))) {
+              const optimizedImg = await compressImage(p.image);
+              processedP.image = optimizedImg;
+              // Respiración entre cada producto (Darle tiempo al Garbage Collector)
+              await new Promise(r => setTimeout(r, 150)); 
+          }
+          currentBatch.push(processedP);
+
+          // Sincronización por lotes mini
+          if (currentBatch.length >= MAX_BATCH_SIZE || i === total - 1) {
+              const count = currentBatch.length;
+              setProgress(`☁️ Sincronizando bloque (${i + 1}/${total}) - Liberando memoria...`);
+              
+              await saveProductsBatch([...currentBatch]);
+              
+              // LIMPIEZA EXPLÍCITA
+              currentBatch.forEach(item => { item.image = null; }); // Romper referencias
+              currentBatch = []; 
+              
+              // Pausa de respiro profundo tras cada lote
+              setProgress(`🍃 Respiro de sistema (Estabilizando RAM)...`);
+              await new Promise(r => setTimeout(r, 500));
+          }
+      }
+
       setIsProcessing(false);
       if (onSyncingStatus) onSyncingStatus(false);
       setProgress('');
-      alert('¡Subida masiva completada!');
-    }
-  };
+      setPendingImportData(null);
+      
+      // v5.4: Recarga de datos frescos tras la carga atómica
+      const freshProducts = await loadLocalProducts();
+      setProducts(sortProducts(freshProducts));
 
-  const handleAiCategorize = async () => {
-    if (!apiKey) return alert('Configura primero tu API Key de Gemini Flash.');
-    
-    // Encontrar solo los productos que necesitan categoría
-    const newProducts = products.filter(p => !p.category || p.category.includes('Nuevos 🎁') || p.category.includes('Otros 🎁'));
-    
-    if (newProducts.length === 0) {
-        return alert('¡Todo tu catálogo ya está categorizado! No hay productos nuevos pendientes.');
-    }
-
-    // Recopilar categorías que ya existen en el catálogo
-    const existingCats = new Set();
-    products.forEach(p => {
-        if (p.category && !p.category.includes('Nuevos 🎁') && !p.category.includes('Otros 🎁')) {
-            existingCats.add(p.category);
-        }
-    });
-    const existingCategoryList = Array.from(existingCats).join(', ');
-
-    if (confirm(`La IA va a analizar y asignar categoría a los ${newProducts.length} productos nuevos. ¿Continuar?`)) {
-      if (onSyncingStatus) onSyncingStatus(true);
-      setIsProcessing(true);
-      setProgress(`Buscando la categoría perfecta para ${newProducts.length} productos nuevos...`);
-
-      try {
-        const productListStr = newProducts.map(p => `ID: ${p.id} | NOMBRE: ${p.name}`).join('\n');
-        
-        let categoriesContext = "";
-        if (existingCats.size > 0) {
-            categoriesContext = `OBLIGATORIO: Asigna los productos a alguna de estas categorías ya existentes si es posible: [${existingCategoryList}]. Si un producto definitivamente no encaja en ninguna de esas, inventa una categoría nueva lógica terminada en un emoji.`;
-        } else {
-            categoriesContext = `Ejemplos de categorías sugeridas: "Labiales & Gloss 💄", "Perfumería & Splash ✨", "Bolsos & Billeteras 👜", "Termos & Vasos 🥤", "Hogar & Variedades 📦". Crea tus propias categorías lógicas que terminen siempre en un emoji.`;
-        }
-        
-        const prompt = `
-          Eres un experto en organizar catálogos de tiendas de belleza y accesorios para mujeres ("Mundo Rosa").
-          Aquí tienes una lista de productos sin categorizar. 
-          Asigna a cada producto una "Categoría" acompañada de UN SOLO emoji al final. 
-          
-          ${categoriesContext}
-          
-          Catálogo de Productos Nuevos:
-          ${productListStr}
-          
-          Devuelve ESTRICTAMENTE un JSON con esta estructura exacta, SIN comentarios ni texto adicional:
-          {"categorias": [{"id": "el-id", "category": "Nombre de Categoria 🎀"}]}
-        `;
-
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
-        
-        const response = await fetch(url, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [{ parts: [{ text: prompt }] }],
-            generationConfig: { response_mime_type: "application/json" }
-          })
-        });
-
-        const data = await response.json();
-        const content = data.candidates[0].content.parts[0].text;
-        const aiResult = JSON.parse(content);
-
-        // Actualizar solo los productos que la IA procesó
-        const updatedProducts = products.map(p => {
-          const aiCat = aiResult.categorias?.find(c => c.id === p.id);
-          if (aiCat && aiCat.category) {
-            const updatedP = { ...p, category: aiCat.category };
-            saveProduct(updatedP); // save to Firestore/DB
-            return updatedP;
-          }
-          return p;
-        });
-
-        setProducts(sortProducts(updatedProducts));
-        alert('¡Categorización completada para los productos nuevos!');
-      } catch (error) {
-        console.error("Error AI Categorization:", error);
-        alert('Hubo un error de conexión con la IA. Asegúrate de que la API Key es válida.');
-      } finally {
+      alert(`¡Importación BLINDADA exitosa! Se han procesado ${total} productos con éxito y estabilidad.`);
+    } catch (err) {
+        console.error(err);
+        alert("Error durante la importación: " + err.message);
         setIsProcessing(false);
         if (onSyncingStatus) onSyncingStatus(false);
-        setProgress('');
-      }
     }
   };
+
   
+
   const handleVerify = () => {
     if (!pastedQuote.trim()) return;
     
@@ -515,8 +643,9 @@ const AdminPanel = ({ isOpen, onClose, currentCatalog, onUpdateCatalog, onSyncin
         items: verifiedResults.items.map(item => ({
           id: item.id,
           name: item.name,
+          sku: item.sku || null, // Guardar el SKU para facilitar la eliminación global
           qty: item.qty,
-          unitPrice: item.realPrice // Almacenar el precio para futuras ediciones en almacén
+          unitPrice: item.realPrice
         })),
         total: verifiedResults.total,
         type: verifiedResults.type,
@@ -603,17 +732,29 @@ const AdminPanel = ({ isOpen, onClose, currentCatalog, onUpdateCatalog, onSyncin
             <button className="btn-primary" onClick={() => setShowAddForm(!showAddForm)}>
               {showAddForm ? 'Cancelar' : '+ Nuevo Producto'}
             </button>
-            <label className="btn-upload">
-              📁 Subir Carpeta (IA)
-              <input type="file" webkitdirectory="" directory="" multiple onChange={handleBulkUpload} hidden />
-            </label>
-            <button className="btn-upload" style={{background: '#e11d48'}} onClick={handleAiCategorize}>
-              🧠 Auto-Categorizar (IA)
-            </button>
             <button className="btn-upload" style={{background: '#7c3aed'}} onClick={() => setShowVerify(!showVerify)}>
               🛡️ Verificar Cotización
             </button>
             <button className="btn-export" onClick={handleExport}>💾 Exportar catalogo.json</button>
+            <button 
+              className="btn-upload" 
+              style={{background: '#0ea5e9'}} 
+              onClick={async () => {
+                if(!confirm('⚠️ DIFERENCIADOR DE DUPLICADOS\n\n¿Deseas asignar códigos únicos Ref. XXX solo a los productos que se llaman igual y valen lo mismo?\n\nLos nombres se actualizarán automáticamente.')) return;
+                setIsProcessing(true);
+                const count = await differentiateDuplicatesOnly((msg) => setProgress(msg));
+                if (count > 0) {
+                     alert(`✅ Se han diferenciado ${count} productos duplicados exitosamente.`);
+                     if (onUpdateCatalog) onUpdateCatalog(); 
+                } else {
+                     alert('✨ No se encontraron duplicados que necesiten ser diferenciados.');
+                }
+                setIsProcessing(false);
+                setProgress('');
+              }}
+            >
+              🏷️ DIFERENCIAR DUPLICADOS
+            </button>
             <label className="btn-import">
               📤 Importar Backup
               <input type="file" accept=".json" onChange={handleImport} hidden />
@@ -634,8 +775,113 @@ const AdminPanel = ({ isOpen, onClose, currentCatalog, onUpdateCatalog, onSyncin
             >
               📊 CONSULTAR ABONOS
             </button>
+            <button 
+              onClick={() => setShowTimersModal(true)}
+              style={{
+                background: 'linear-gradient(90deg, #92400e, #d97706)',
+                color: '#fff',
+                border: '1px solid #f59e0b',
+                borderRadius: '10px',
+                padding: '8px 16px',
+                fontWeight: 'bold',
+                fontSize: '0.8rem',
+                cursor: 'pointer',
+                whiteSpace: 'nowrap'
+              }}
+            >
+              ⏱️ TEMPORIZADOR CLIENTES
+            </button>
           </div>
         </section>
+
+        {/* TIMERS MODAL v2.15 */}
+        {showTimersModal && (
+          <div style={{
+            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)',
+            zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center',
+            padding: '20px'
+          }}>
+            <div style={{
+              background: '#0f172a',
+              borderRadius: '20px',
+              border: '2px solid #f59e0b',
+              width: '100%',
+              maxWidth: '500px',
+              maxHeight: '80vh',
+              overflowY: 'auto',
+              padding: '20px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '12px'
+            }}>
+              {/* Header */}
+              <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
+                <h3 style={{color: '#f59e0b', margin: 0, fontSize: '1rem', fontWeight: '900'}}>⏱️ TEMPORIZADOR CLIENTES</h3>
+                <button onClick={() => setShowTimersModal(false)} style={{background: 'none', border: 'none', color: '#94a3b8', fontSize: '1.3rem', cursor: 'pointer'}}>✕</button>
+              </div>
+
+              {/* Timer List */}
+              {activeTimers.length === 0 ? (
+                <p style={{color: '#64748b', textAlign: 'center', fontSize: '0.85rem', padding: '20px 0'}}>No hay temporizadores activos.</p>
+              ) : (
+                activeTimers.map(timer => {
+                  const remainingMs = getTimerRemaining(timer);
+                  const display = formatTimerDisplay(remainingMs);
+                  const expired = remainingMs <= 0;
+                  return (
+                    <div key={timer.id} style={{
+                      background: '#1e293b',
+                      borderRadius: '12px',
+                      padding: '14px 16px',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      border: expired ? '1px solid #ef4444' : '1px solid #334155',
+                      animation: expired ? 'pulse 0.8s infinite' : 'none'
+                    }}>
+                      <div style={{display: 'flex', flexDirection: 'column', gap: '4px'}}>
+                        <span style={{color: '#f8fafc', fontWeight: '900', fontSize: '1rem', letterSpacing: '0.5px'}}>
+                          {(timer.customerName || '').toUpperCase()}
+                        </span>
+                        {expired ? (
+                          <span style={{color: '#ef4444', fontWeight: 'bold', fontSize: '0.85rem', animation: 'pulse 0.6s infinite'}}>
+                            🔴 TIEMPO AGOTADO
+                          </span>
+                        ) : (
+                          <span style={{color: '#10b981', fontWeight: 'bold', fontSize: '0.9rem'}}>
+                            {display}
+                          </span>
+                        )}
+                      </div>
+                      <button
+                        onClick={() => deleteCustomerTimer(timer.id)}
+                        style={{
+                          background: '#1e293b',
+                          border: '1px solid #334155',
+                          borderRadius: '8px',
+                          color: '#94a3b8',
+                          width: '34px',
+                          height: '34px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          cursor: 'pointer',
+                          fontSize: '1rem'
+                        }}
+                        title="Eliminar temporizador"
+                      >🗑️</button>
+                    </div>
+                  );
+                })
+              )}
+
+              {/* Footer note */}
+              <p style={{color: '#64748b', fontSize: '0.7rem', textAlign: 'center', margin: '5px 0 0 0', fontStyle: 'italic'}}>
+                * Los registros requieren eliminación manual por el asesor.
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* ABONOS VIEWER MODAL v15.1 */}
         {showAbonosViewer && (
@@ -693,9 +939,29 @@ const AdminPanel = ({ isOpen, onClose, currentCatalog, onUpdateCatalog, onSyncin
                 </div>
               ) : (
                 <div style={{display: 'flex', flexDirection: 'column', gap: '15px'}}>
-                  <p style={{color: '#94a3b8', fontSize: '0.75rem', margin: '0 0 5px 0', fontStyle: 'italic'}}>
-                    *A continuación se muestran los abonos registrados con su evidencia fotográfica.
-                  </p>
+                   <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '5px'}}>
+                    <p style={{color: '#94a3b8', fontSize: '0.75rem', margin: 0, fontStyle: 'italic'}}>
+                      *A continuación se muestran los abonos registrados con su evidencia fotográfica.
+                    </p>
+                    <button 
+                      onClick={exportAbonosToExcel}
+                      style={{
+                        background: '#10b981', 
+                        color: 'white', 
+                        border: 'none', 
+                        borderRadius: '8px', 
+                        padding: '6px 12px', 
+                        fontSize: '0.75rem', 
+                        fontWeight: 'bold', 
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px'
+                      }}
+                    >
+                      📊 EXPORTAR EXCEL
+                    </button>
+                  </div>
                   {(!allPayments || allPayments.length === 0) ? (
                     <p style={{color: '#94a3b8', textAlign: 'center'}}>No hay abonos registrados todavía.</p>
                   ) : (
@@ -715,24 +981,95 @@ const AdminPanel = ({ isOpen, onClose, currentCatalog, onUpdateCatalog, onSyncin
                               {p.advisorName || 'Asesor no registrado'}
                             </div>
                             <div style={{color: '#94a3b8', fontSize: '0.75rem'}}>
-                              {(p.date || '').split('-').reverse().join('/') || 'S/F'} &bull; {p.customerName}
+                              {(p.date || '').split('-').reverse().join('/') || 'S/F'} 
+                              {p.createdAt && (
+                                <span style={{marginLeft: '5px', color: '#64748b'}}>
+                                  🕒 {(p.createdAt.toDate ? p.createdAt.toDate() : new Date(p.createdAt.seconds * 1000)).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
+                                </span>
+                              )}
+                              &bull; {p.customerName}
                             </div>
                           </div>
-                          <div style={{display: 'flex', alignItems: 'center', gap: '10px'}}>
+                            <div style={{display: 'flex', alignItems: 'center', gap: '10px'}}>
                             <div style={{color: '#10b981', fontWeight: '900', fontSize: '1.2rem'}}>
-                                ${parseInt(p.amount || 0).toLocaleString('es-CO')}
+                                {editingAbonoId === p.id ? (
+                                    <input 
+                                        type="number" 
+                                        value={editingAmount}
+                                        onChange={(e) => setEditingAmount(e.target.value)}
+                                        style={{width: '100px', background: '#0f172a', border: '1px solid #38bdf8', color: '#fff', padding: '5px', borderRadius: '5px'}}
+                                        autoFocus
+                                    />
+                                ) : (
+                                    `$${parseInt(p.amount || 0).toLocaleString('es-CO')}`
+                                )}
                             </div>
-                            <button 
-                                onClick={async () => {
-                                    if (window.confirm('¿Confirmas que deseas ELIMINAR este registro de abono permanentemente?')) {
-                                        await deletePayment(p.id);
-                                    }
-                                }}
-                                style={{background: 'rgba(239, 68, 68, 0.1)', border: 'none', color: '#ef4444', padding: '8px', borderRadius: '8px', cursor: 'pointer', fontSize: '1rem'}}
-                                title="Eliminar abono"
-                            >
-                                🗑️
-                            </button>
+                            <div style={{display: 'flex', gap: '5px'}}>
+                                {editingAbonoId === p.id ? (
+                                    <>
+                                        <input 
+                                            type="password" 
+                                            placeholder="Cód." 
+                                            value={editAuthCode}
+                                            onChange={(e) => setEditAuthCode(e.target.value)}
+                                            maxLength={4}
+                                            style={{width: '60px', background: '#0f172a', border: '1px solid #ef4444', color: '#fff', padding: '5px', borderRadius: '5px', fontSize: '0.7rem'}}
+                                        />
+                                        <button 
+                                            onClick={async () => {
+                                                const resolved = ADVISOR_CODES[editAuthCode.trim()];
+                                                if (!resolved) return alert('❌ Código de asesor inválido.');
+                                                if (!editingAmount || isNaN(editingAmount)) return alert('❌ Por favor ingresa un monto válido.');
+                                                
+                                                const success = await updatePaymentGlobal(p.id, { 
+                                                    amount: parseInt(editingAmount),
+                                                    advisorName: `${resolved} (Corregido)` 
+                                                });
+                                                if (success) {
+                                                    setEditingAbonoId(null);
+                                                    setEditAuthCode('');
+                                                } else {
+                                                    alert('❌ Error al actualizar el abono.');
+                                                }
+                                            }}
+                                            style={{background: '#10b981', border: 'none', color: '#fff', padding: '5px 8px', borderRadius: '5px', cursor: 'pointer', fontSize: '0.8rem'}}
+                                        >
+                                            ✅
+                                        </button>
+                                        <button 
+                                            onClick={() => setEditingAbonoId(null)}
+                                            style={{background: '#64748b', border: 'none', color: '#fff', padding: '5px 8px', borderRadius: '5px', cursor: 'pointer', fontSize: '0.8rem'}}
+                                        >
+                                            ❌
+                                        </button>
+                                    </>
+                                ) : (
+                                    <>
+                                        <button 
+                                            onClick={() => {
+                                                setEditingAbonoId(p.id);
+                                                setEditingAmount(p.amount);
+                                                setEditAuthCode('');
+                                            }}
+                                            style={{background: 'rgba(56, 189, 248, 0.1)', border: 'none', color: '#38bdf8', padding: '8px', borderRadius: '8px', cursor: 'pointer', fontSize: '1rem'}}
+                                            title="Editar abono"
+                                        >
+                                            ✏️
+                                        </button>
+                                        <button 
+                                            onClick={async () => {
+                                                if (window.confirm('¿Confirmas que deseas ELIMINAR este registro de abono permanentemente?')) {
+                                                    await deletePayment(p.id);
+                                                }
+                                            }}
+                                            style={{background: 'rgba(239, 68, 68, 0.1)', border: 'none', color: '#ef4444', padding: '8px', borderRadius: '8px', cursor: 'pointer', fontSize: '1rem'}}
+                                            title="Eliminar abono"
+                                        >
+                                            🗑️
+                                        </button>
+                                    </>
+                                )}
+                            </div>
                           </div>
                         </div>
                         {p.receiptImage ? (
@@ -805,7 +1142,49 @@ const AdminPanel = ({ isOpen, onClose, currentCatalog, onUpdateCatalog, onSyncin
           </form>
         )}
 
-        {isProcessing && (
+        {/* v5.2: Modal de Decisión de Importación Centrado y Premium */}
+      {importModeChoice === 'pending' && (
+        <div className="admin-decision-overlay">
+          <div className="admin-decision-card">
+            <div style={{ fontSize: '3.5rem', marginBottom: '20px', filter: 'drop-shadow(0 10px 20px rgba(0,0,0,0.3))' }}>📥</div>
+            <h2>¿Cómo deseas importar?</h2>
+            <p>
+              Hemos leído el archivo y encontramos <strong>{pendingImportData?.length}</strong> productos listos para procesar. Selecciona el modo que prefieras:
+            </p>
+            
+            <div className="decision-actions">
+              <button 
+                className="btn-decision replace" 
+                onClick={() => executeImport('replace')}
+              >
+                🔄 MODO REEMPLAZO
+                <span className="sub">(Borra todo y deja solo el archivo nuevo)</span>
+              </button>
+
+              <button 
+                className="btn-decision append" 
+                onClick={() => executeImport('append')}
+              >
+                ➕ MODO ANEXO
+                <span className="sub">(Mantiene lo actual y suma lo nuevo)</span>
+              </button>
+
+              <button 
+                className="btn-delete" 
+                style={{ marginTop: '20px', background: 'transparent', border: '1px solid rgba(255,255,255,0.1)', padding: '12px' }}
+                onClick={() => {
+                  setImportModeChoice(null);
+                  setPendingImportData(null);
+                }}
+              >
+                Cancelar Operación
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isProcessing && (
           <div className="admin-loader">
             <div className="spinner"></div>
             <p>{progress || 'Procesando...'}</p>
@@ -888,25 +1267,69 @@ const AdminPanel = ({ isOpen, onClose, currentCatalog, onUpdateCatalog, onSyncin
                 <div className="customer-selection-area" style={{marginTop: '15px'}}>
                   <label style={{display: 'block', marginBottom: '5px', fontSize: '0.9rem', color: 'rgba(255,255,255,0.7)'}}>👤 Seleccionar Cliente:</label>
                   
-                  <select 
-                    className="admin-select"
-                    value={isNewCustomer ? "NEW" : customerName}
-                    onChange={(e) => {
-                      if (e.target.value === "NEW") {
-                        setIsNewCustomer(true);
-                        setCustomerName("");
-                      } else {
-                        setIsNewCustomer(false);
-                        setCustomerName(e.target.value);
-                      }
-                    }}
-                  >
-                    {!customerName && !isNewCustomer && <option value="">--- Seleccionar de Bodega ---</option>}
-                    {activeCustomers.map(name => (
-                      <option key={name} value={name}>{name}</option>
-                    ))}
-                    <option value="NEW">✍️ NUEVO CLIENTE (Ingresar manual)</option>
-                  </select>
+                  <div className="search-select-container">
+                    <div 
+                      className="search-select-trigger" 
+                      onClick={() => setIsCustDropdownOpen(!isCustDropdownOpen)}
+                    >
+                      <span>
+                        {isNewCustomer 
+                          ? "✍️ NUEVO CLIENTE (Ingresar manual)" 
+                          : (customerName || "--- Seleccionar de Bodega ---")}
+                      </span>
+                      <span style={{ fontSize: '0.8rem', opacity: 0.5 }}>{isCustDropdownOpen ? '▲' : '▼'}</span>
+                    </div>
+
+                    {isCustDropdownOpen && (
+                      <div className="search-select-dropdown">
+                        <div className="search-select-search-bar">
+                          <input 
+                            type="text" 
+                            placeholder="Buscar cliente..." 
+                            value={custSearch}
+                            onChange={(e) => setCustSearch(e.target.value)}
+                            autoFocus
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                        </div>
+
+                        <div className="search-select-options">
+                          {filteredActiveCustomers.length === 0 && custSearch && (
+                            <div style={{ padding: '10px', color: '#64748b', fontSize: '0.8rem', textAlign: 'center' }}>
+                              No se encontraron coincidencias
+                            </div>
+                          )}
+                          
+                          {filteredActiveCustomers.map(name => (
+                            <div 
+                              key={name} 
+                              className={`option-item ${customerName === name && !isNewCustomer ? 'selected' : ''}`}
+                              onClick={() => {
+                                setCustomerName(name);
+                                setIsNewCustomer(false);
+                                setIsCustDropdownOpen(false);
+                                setCustSearch('');
+                              }}
+                            >
+                              {name}
+                            </div>
+                          ))}
+
+                          <div 
+                            className={`option-item new-user ${isNewCustomer ? 'selected' : ''}`}
+                            onClick={() => {
+                                setIsNewCustomer(true);
+                                setCustomerName("");
+                                setIsCustDropdownOpen(false);
+                                setCustSearch('');
+                            }}
+                          >
+                            ✍️ NUEVO CLIENTE (Ingresar manual)
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
 
                   {isNewCustomer && (
                     <input 
@@ -946,46 +1369,50 @@ const AdminPanel = ({ isOpen, onClose, currentCatalog, onUpdateCatalog, onSyncin
           </section>
         )}
         
-        <div className="admin-search-bar">
-          <input 
-            type="text" 
-            placeholder="🔍 Buscar producto por nombre para editar o eliminar..." 
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
-        </div>
+       {!isProcessing && (
+         <>
+          <div className="admin-search-bar">
+            <input 
+              type="text" 
+              placeholder="🔍 Buscar producto por nombre para editar o eliminar..." 
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
 
-        <div className="admin-table-container">
-          <table className="admin-table">
-            <thead>
-              <tr>
-                <th>Imagen</th>
-                <th>Nombre</th>
-                <th>Categoría (IA)</th>
-                <th>P. Mayor</th>
-                <th>P. Detal</th>
-                <th>Acciones</th>
-              </tr>
-            </thead>
-            <tbody>
-              {displayProducts.map(p => (
-                <AdminProductRow 
-                  key={p.id} 
-                  product={p} 
-                  onEdit={handleEdit} 
-                  onDelete={handleDelete} 
-                />
-              ))}
-            </tbody>
-          </table>
-        </div>
-        
-        <div className="admin-footer">
-          <p className="hint">⚡ Los cambios se guardan instantáneamente en la nube (Firebase) para todos tus clientes.</p>
-          <button className="btn-apply" onClick={onClose}>
-            Cerrar Panel
-          </button>
-        </div>
+          <div className="admin-table-container">
+            <table className="admin-table">
+              <thead>
+                <tr>
+                  <th>Imagen</th>
+                  <th>Nombre</th>
+                  <th>Categoría (IA)</th>
+                  <th>P. Mayor</th>
+                  <th>P. Detal</th>
+                  <th>Acciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                {displayProducts.map(p => (
+                  <AdminProductRow 
+                    key={p.id} 
+                    product={p} 
+                    onEdit={handleEdit} 
+                    onDelete={handleDelete} 
+                  />
+                ))}
+              </tbody>
+            </table>
+          </div>
+          
+          <div className="admin-footer">
+            <p className="hint">⚡ Los cambios se guardan instantáneamente en la nube (Firebase) para todos tus clientes.</p>
+            <button className="btn-apply" onClick={onClose}>
+              Cerrar Panel
+            </button>
+          </div>
+        </>
+       )}
       </div>
     </div>
   );

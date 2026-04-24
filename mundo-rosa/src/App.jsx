@@ -11,6 +11,7 @@ import PricingModal from './components/PricingModal';
 import AdminPanel from './components/AdminPanel';
 import OrderQueue from './components/OrderQueue';
 import AuthModal from './components/AuthModal';
+import DraggableRefresh from './components/DraggableRefresh';
 import { loadLocalProducts, onOrdersUpdate, onAllPaymentsUpdate } from './utils/db';
 
 function App() {
@@ -32,6 +33,7 @@ function App() {
     const saved = localStorage.getItem('MUNDOROSA_SEPARATION_COUNT');
     return saved ? parseInt(saved) : 0;
   });
+  const [globalSearch, setGlobalSearch] = useState(''); // REQUERIMIENTO: Buscador Global
 
   // Admin state
   const [isAdminOpen, setIsAdminOpen] = useState(false);
@@ -60,7 +62,10 @@ function App() {
         if (isSyncing) return; // Silent mode during bulk operations
         const productArray = [];
         querySnapshot.forEach((doc) => {
-          productArray.push({ id: doc.id, ...doc.data() });
+          const data = doc.data();
+          if (!data.isCustomerNote && !doc.id.startsWith("CUST_NOTE_")) {
+              productArray.push({ id: doc.id, ...data });
+          }
         });
         setProducts(sortProducts(productArray));
       }, (error) => {
@@ -86,6 +91,16 @@ function App() {
       };
     } else {
       fetchLocalCatalog();
+    }
+  }, []);
+
+  // Auto-reopen Warehouse after hard refresh v2.8
+  useEffect(() => {
+    const shouldReopen = localStorage.getItem('MUNDOROSA_REOPEN_WAREHOUSE');
+    if (shouldReopen === 'true') {
+      localStorage.removeItem('MUNDOROSA_REOPEN_WAREHOUSE');
+      setIsWarehouseOpen(true);
+      console.log("📦 Almacén reabierto automáticamente tras recarga.");
     }
   }, []);
 
@@ -206,6 +221,22 @@ function App() {
   };
 
   const cartTotal = cart.reduce((acc, item) => acc + (item.price * item.quantity), 0);
+  
+  // Normalización para búsqueda flexible (sin tildes, sin mayúsculas)
+  const normalizeSearch = (text) => {
+    if (!text) return "";
+    return text.toString().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+  };
+
+  const filteredProducts = products.filter(p => {
+    if (!globalSearch) return true;
+    const term = normalizeSearch(globalSearch);
+    const productName = normalizeSearch(p.name);
+    const productId = p.id?.toString().toLowerCase() || "";
+    const productSku = p.sku?.toLowerCase() || "";
+    
+    return productName.includes(term) || productId.includes(term) || productSku.includes(term);
+  });
 
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat('es-CO', {
@@ -235,7 +266,7 @@ function App() {
       `💰 *TOTAL DE ESTE SEPARADO: ${formatCurrency(newItems.reduce((a, b) => a + (b.price * b.quantity), 0))}*\n` +
       `💵 *TOTAL ACUMULADO DEL PEDIDO: ${formatCurrency(cartTotal)}*\n` +
       `Tipo de precio: _${tipoLabel}_\n\n` +
-      `⚠️ _La asesora verificará y separará estos ítems._`;
+      `⚠️ _La asesora verificará y separará este pedido._`;
 
     navigator.clipboard.writeText(text).then(() => {
       // Mark as separated but keep in cart
@@ -262,12 +293,14 @@ function App() {
         onAdminOpen={() => checkAuthAndOpen('admin')}
         onWarehouseOpen={() => checkAuthAndOpen('warehouse')}
         isConfigured={isConfigured}
+        globalSearch={globalSearch}
+        onSearchChange={setGlobalSearch}
       />
 
       <Hero />
 
       <ProductGrid
-        products={products}
+        products={filteredProducts}
         cart={cart}
         onAddToCart={handleAddToCart}
         onRemoveOne={removeOneFromCart}
@@ -306,10 +339,32 @@ function App() {
 
       <footer>
         <div className="container">
-          <div className="logo" onClick={() => checkAuthAndOpen('admin')} style={{ cursor: 'pointer' }}>
-            MUNDO ROSA <span style={{fontSize: '0.6rem', opacity: 0.5, marginLeft: '5px', verticalAlign: 'middle'}}>v16.7.2</span>
+          <div 
+            className="footer-main-logo" 
+            onClick={() => checkAuthAndOpen('admin')}
+            style={{
+              display: 'block',
+              color: '#FF758C',
+              fontSize: '1.8rem',
+              fontWeight: '900',
+              textAlign: 'center',
+              letterSpacing: '3px',
+              margin: '15px 0',
+              fontFamily: 'Outfit, sans-serif',
+              textShadow: '0 2px 10px rgba(255,117,140,0.3)',
+              cursor: 'pointer',
+              visibility: 'visible',
+              opacity: 1
+            }}
+          >
+            MUNDO ROSA
           </div>
           <p>&copy; {new Date().getFullYear()} MUNDO ROSA - Hecho con amor 💖</p>
+          <div style={{ marginTop: '20px', display: 'flex', justifyContent: 'center' }}>
+            <button className="warehouse-btn" onClick={() => checkAuthAndOpen('warehouse')}>
+              📦 Almacén
+            </button>
+          </div>
         </div>
       </footer>
       <OrderQueue
@@ -321,6 +376,151 @@ function App() {
         allPayments={allPayments}
       />
       
+      {/* Botón Flotante Dinámico Original (Rosado y Arrastrable) */}
+      <DraggableRefresh />
+
+      {/* Flecha Flotante Estática para ir ARRIBA (SOLO PC - IZQUIERDA) */}
+      <button 
+        className="desktop-arrows"
+        onClick={() => {
+          setTimeout(() => {
+            window.scrollTo({
+              top: 0,
+              behavior: 'smooth'
+            });
+          }, 50);
+        }}
+        style={{
+          position: 'fixed',
+          bottom: '86px', 
+          left: '30px', /* Movido al lado izquierdo */
+          backgroundColor: 'rgba(255, 126, 179, 0.3)',
+          border: 'none',
+          borderRadius: '50%',
+          width: '56px',
+          height: '56px',
+          justifyContent: 'center',
+          alignItems: 'center',
+          color: '#FF758C', // Rosa más claro y brillante
+          zIndex: 9998,
+          cursor: 'pointer',
+          boxShadow: '0 2px 10px rgba(255, 126, 179, 0.2)',
+          outline: 'none',
+          padding: 0
+        }}
+        aria-label="Ir al inicio de la página"
+      >
+        <svg 
+          xmlns="http://www.w3.org/2000/svg" 
+          width="30" height="30" 
+          viewBox="0 0 24 24" 
+          fill="none" 
+          stroke="currentColor" 
+          strokeWidth="2.5" 
+          strokeLinecap="round" 
+          strokeLinejoin="round" 
+          style={{ filter: 'drop-shadow(0px 2px 4px rgba(0,0,0,0.1))', marginBottom: '3px' }}
+        >
+          <line x1="12" y1="20" x2="12" y2="4"></line>
+          <polyline points="6 10 12 4 18 10"></polyline>
+        </svg>
+      </button>
+
+      {/* Botón Flotante Estático para ir al fondo (SOLO PC - IZQUIERDA) */}
+      <button 
+        className="desktop-arrows"
+        onClick={() => {
+          setTimeout(() => {
+            window.scrollTo({
+              top: document.documentElement.scrollHeight,
+              behavior: 'smooth'
+            });
+          }, 50);
+        }}
+        style={{
+          position: 'fixed',
+          bottom: '20px',
+          left: '30px', /* Movido al lado izquierdo */
+          backgroundColor: 'rgba(255, 126, 179, 0.3)',
+          border: 'none',
+          borderRadius: '50%',
+          width: '56px',
+          height: '56px',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          color: '#FF758C', // Rosa oscuro
+          zIndex: 9998,
+          cursor: 'pointer',
+          boxShadow: '0 2px 10px rgba(255, 126, 179, 0.2)',
+          outline: 'none',
+          padding: 0
+        }}
+        aria-label="Ir al final de la página"
+      >
+        <svg 
+          xmlns="http://www.w3.org/2000/svg" 
+          width="30" height="30" 
+          viewBox="0 0 24 24" 
+          fill="none" 
+          stroke="currentColor" 
+          strokeWidth="2.5" 
+          strokeLinecap="round" 
+          strokeLinejoin="round" 
+          style={{ filter: 'drop-shadow(0px 2px 4px rgba(0,0,0,0.1))', marginTop: '3px' }}
+        >
+          <line x1="12" y1="4" x2="12" y2="20"></line>
+          <polyline points="18 14 12 20 6 14"></polyline>
+        </svg>
+      </button>
+
+      {/* Botón Flotante Estático para ir al fondo (SOLO CELULARES - IZQUIERDA) */}
+      <button 
+        className="mobile-arrows"
+        onClick={() => {
+          setTimeout(() => {
+            window.scrollTo({
+              top: document.documentElement.scrollHeight,
+              behavior: 'smooth'
+            });
+          }, 50);
+        }}
+        style={{
+          position: 'fixed',
+          bottom: '20px',
+          left: '20px', 
+          backgroundColor: 'rgba(255, 126, 179, 0.3)',
+          border: 'none',
+          borderRadius: '50%',
+          width: '56px',
+          height: '56px',
+          justifyContent: 'center',
+          alignItems: 'center',
+          color: '#FF758C', // Rosa más claro y brillante
+          zIndex: 9998,
+          cursor: 'pointer',
+          boxShadow: '0 2px 10px rgba(255, 126, 179, 0.2)',
+          outline: 'none',
+          padding: 0
+        }}
+        aria-label="Ir al final de la página"
+      >
+        <svg 
+          xmlns="http://www.w3.org/2000/svg" 
+          width="30" height="30" 
+          viewBox="0 0 24 24" 
+          fill="none" 
+          stroke="currentColor" 
+          strokeWidth="2.5" 
+          strokeLinecap="round" 
+          strokeLinejoin="round" 
+          style={{ filter: 'drop-shadow(0px 2px 4px rgba(0,0,0,0.1))', marginTop: '3px' }}
+        >
+          <line x1="12" y1="4" x2="12" y2="20"></line>
+          <polyline points="18 14 12 20 6 14"></polyline>
+        </svg>
+      </button>
+
       <AuthModal 
         isOpen={isAuthModalOpen}
         onClose={() => setIsAuthModalOpen(false)}

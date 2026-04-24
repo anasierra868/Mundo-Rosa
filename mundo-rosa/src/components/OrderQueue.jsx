@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { onOrdersUpdate, deleteOrder, addPayment, onCustomerPaymentsUpdate, deletePayment, purgeCustomerData, updateOrder, compressImage, toBase64 } from '../utils/db';
+import { onOrdersUpdate, deleteOrder, addPayment, onCustomerPaymentsUpdate, deletePayment, purgeCustomerData, updateOrder, deleteProduct, compressImage, toBase64, renameCustomer, ADVISOR_CODES, updateOrderAbono, deleteOrderAbono, startCustomerTimer, onTimersUpdate, deleteCustomerTimer, deleteProductGlobalAtomic, getCustomerNote, saveCustomerNote } from '../utils/db';
 
 function OrderQueue({ isOpen, onClose, formatCurrency, catalog, orders, allPayments }) {
   const [selectedCustomerName, setSelectedCustomerName] = useState(null);
@@ -18,21 +18,162 @@ function OrderQueue({ isOpen, onClose, formatCurrency, catalog, orders, allPayme
   const [itemSearchText, setItemSearchText] = useState("");
   const [activeSearchOrderId, setActiveSearchOrderId] = useState(null);
 
-   // ADVISOR AUTH v16.4
-   const ADVISOR_CODES = { 
-     '1349': 'Dharma Perea', 
-     '3768': 'Marcela Venegas', 
-     '1947': 'Luisa Patiño',
-     '4399': 'Esteban',
-     '2815': 'Ana'
-   };
+   // NEW Local Edit State v2.10
+   const [editingLocalAbono, setEditingLocalAbono] = useState(null); // { orderId, index, amount }
+   const [localEditAmount, setLocalEditAmount] = useState('');
+   const [localEditDate, setLocalEditDate] = useState('');
+   const [localEditAuthCode, setLocalEditAuthCode] = useState('');
    const [advisorCode, setAdvisorCode] = useState('');
    const [advisorName, setAdvisorName] = useState(null);
+
+   // SALDO A FAVOR v1.0 — Local warehouse credit (never touches PAYMENTS_COLLECTION)
+   const [showSaldoFavorForm, setShowSaldoFavorForm] = useState(false);
+   const [saldoFavorAmount, setSaldoFavorAmount] = useState('');
+   const [saldoFavorCode, setSaldoFavorCode] = useState('');
+   const [saldoFavorAdvisorName, setSaldoFavorAdvisorName] = useState(null);
+
+   // TIMERS v2.15
+   const [activeTimers, setActiveTimers] = useState([]);
+   const [showTimersPanel, setShowTimersPanel] = useState(false);
+   const [timerTick, setTimerTick] = useState(0);
+   const [notifiedTimers, setNotifiedTimers] = useState(new Set()); // v3.0
+
+   useEffect(() => {
+     const unsub = onTimersUpdate(setActiveTimers);
+     return () => unsub();
+   }, []);
+
+   useEffect(() => {
+     const interval = setInterval(() => setTimerTick(t => t + 1), 1000);
+     return () => clearInterval(interval);
+   }, []);
+
+   // ALARM MONITOR v3.0
+   useEffect(() => {
+     if (!activeTimers || activeTimers.length === 0) return;
+
+     activeTimers.forEach(timer => {
+       if (notifiedTimers.has(timer.id)) return;
+
+       // Calculate time
+       const startedAt = timer.startedAt?.toDate ? timer.startedAt.toDate() : new Date(timer.createdAt || new Date());
+       const now = new Date();
+       const elapsed = now - startedAt;
+       const remaining = timer.durationMs - elapsed;
+
+       if (remaining <= 0) {
+         // EXPIRED! Trigger Alarm
+         playTimerAlarm(timer.customerName);
+         setNotifiedTimers(prev => new Set([...prev, timer.id]));
+       }
+     });
+   }, [activeTimers, timerTick, notifiedTimers]);
+
+   const playTimerAlarm = (customerName) => {
+     try {
+       // 1. Voice Notification (Premium feel)
+       if ('speechSynthesis' in window) {
+         const msg = new SpeechSynthesisUtterance(`Atención. El tiempo del cliente ${customerName} se ha agotado.`);
+         msg.lang = 'es-ES';
+         msg.rate = 0.9;
+         window.speechSynthesis.speak(msg);
+       }
+
+       // 2. Beep (Context Audio)
+       const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+       const oscillator = audioCtx.createOscillator();
+       const gainNode = audioCtx.createGain();
+
+       oscillator.type = 'triangle';
+       oscillator.frequency.setValueAtTime(523.25, audioCtx.currentTime); // C5
+       oscillator.frequency.exponentialRampToValueAtTime(880, audioCtx.currentTime + 0.5); // Slide to A5
+       
+       gainNode.gain.setValueAtTime(0, audioCtx.currentTime);
+       gainNode.gain.linearRampToValueAtTime(0.5, audioCtx.currentTime + 0.1);
+       gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 1.5);
+
+       oscillator.connect(gainNode);
+       gainNode.connect(audioCtx.destination);
+
+       oscillator.start();
+       oscillator.stop(audioCtx.currentTime + 1.5);
+     } catch (e) {
+       console.warn("Audio alarm blocked by browser policy:", e);
+     }
+   };
+
+   const handleStartTimer = async () => {
+     if (!selectedCustomerName) return;
+     await startCustomerTimer(selectedCustomerName, 15);
+     alert(`\u23f1\ufe0f Temporizador iniciado para ${selectedCustomerName}`);
+   };
    const [receiptImage, setReceiptImage] = useState(null); // base64
    
    // New Auth Modal State v16.4
    const [showAdvisorAuthModal, setShowAdvisorAuthModal] = useState(false);
    const [advisorAuthCode, setAdvisorAuthCode] = useState('');
+
+   // Rename Customer Feature v2
+   const [isEditingName, setIsEditingName] = useState(false);
+   const [tempName, setTempName] = useState('');
+   const [justRenamedFrom, setJustRenamedFrom] = useState(null); // Instant UI Patch
+   
+   // Customer Notes v5.0
+   const [customerNote, setCustomerNote] = useState(null);
+   useEffect(() => {
+     if (!selectedCustomerName) {
+         setCustomerNote(null);
+         return;
+     }
+     const fetchNote = async () => {
+         const note = await getCustomerNote(selectedCustomerName);
+         setCustomerNote(note);
+     };
+     fetchNote();
+   }, [selectedCustomerName]);
+
+  const handleEditNote = async (e) => {
+    e.stopPropagation();
+    e.preventDefault();
+    if (!selectedCustomerName) return;
+    const currentNote = customerNote || '';
+    const newNote = prompt(`Escribe la nota para ${selectedCustomerName}:`, currentNote);
+    if (newNote === null) return;
+    setIsUpdating(true);
+    await saveCustomerNote(selectedCustomerName, newNote);
+    setCustomerNote(newNote.trim() === '' ? null : newNote.trim());
+    setIsUpdating(false);
+  };
+
+  // v5.10: DELETE FULL ORDER (Single Batch Only)
+  const handleDeleteFullOrder = async (orderId, orderCode) => {
+    if (window.confirm(`\u26a0\ufe0f ADVERTENCIA: \u00bfEst\u00e1s seguro de eliminar TODO el pedido "${orderCode}"? \n\nEsta acci\u00f3n eliminar\u00e1 todos los art\u00edculos de esta tanda y es irreversible.`)) {
+      setIsUpdating(true);
+      // Guardar cliente actual en memoria antes de refrescar
+      if (selectedCustomerName) localStorage.setItem('lastSelectedCustomer', selectedCustomerName);
+      
+      // v7.3: Forzar reapertura igual que en artículos
+      localStorage.setItem('MUNDOROSA_REOPEN_WAREHOUSE', 'true');
+      
+      await deleteOrder(orderId, orderCode);
+      
+      // Delay de seguridad para persistencia
+      setTimeout(() => {
+          window.location.reload();
+      }, 800);
+    }
+  };
+
+  const handleReadNote = (e) => {
+    e.stopPropagation();
+    e.preventDefault();
+    if (customerNote) {
+        alert(`🗒️ NOTA DE ${selectedCustomerName}:\n\n${customerNote}`);
+    } else {
+        alert(`No hay notas guardadas para ${selectedCustomerName}`);
+    }
+  };
+
   const receiptInputRef = useRef(null);
 
   const getBaseName = (code) => {
@@ -45,9 +186,15 @@ function OrderQueue({ isOpen, onClose, formatCurrency, catalog, orders, allPayme
     // Auto-select first unique customer name if nothing selected OR if selected was purged
     const uniqueInCurrent = Array.from(new Set(orders.map(o => getBaseName(o.code))));
     setSelectedCustomerName(prev => {
-        if (!prev && uniqueInCurrent.length > 0) return uniqueInCurrent[0];
-        if (prev && !uniqueInCurrent.includes(prev)) return uniqueInCurrent.length > 0 ? uniqueInCurrent[0] : null;
-        return prev;
+        // 1. Priorizar selección activa si aún es válida en la lista actual
+        if (prev && uniqueInCurrent.includes(prev)) return prev;
+
+        // 2. Si no hay selección (carga inicial) o el cliente ya no existe, buscar en memoria local
+        const saved = localStorage.getItem('lastSelectedCustomer');
+        if (saved && uniqueInCurrent.includes(saved)) return saved;
+        
+        // 3. Fallback: seleccionar el primero disponible
+        return uniqueInCurrent.length > 0 ? uniqueInCurrent[0] : null;
     });
   }, [isOpen, orders]);
 
@@ -76,12 +223,40 @@ function OrderQueue({ isOpen, onClose, formatCurrency, catalog, orders, allPayme
     return 'normal';
   };
 
+  // v4.9: Normalization helper for insensitive search
+  const normalizeText = (text) => {
+    if (!text) return "";
+    return text.toString().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9 ]/g, " ").replace(/\s+/g, " ").trim();
+  };
+
   // Grouped unique customer names for the dropdown (FILTERED)
   const uniqueCustomerNames = Array.from(new Set(orders.map(o => getBaseName(o.code))))
     .filter(name => {
-        const matchesSearch = name.toLowerCase().includes(searchTerm.toLowerCase());
+        // Instant UI Patch: Hide the old name immediately after renaming
+        if (name === justRenamedFrom) return false;
+        
+        const term = normalizeText(searchTerm);
+        if (!term) {
+            if (filterAlerts) {
+                const customerOrders = orders.filter(o => getBaseName(o.code) === name);
+                const status = getAlertStatus(customerOrders);
+                return status === 'red' || status === 'orange';
+            }
+            return true;
+        }
+
+        // v4.9: Universal Search (matches name OR category/product inside their orders)
+        const matchesName = normalizeText(name).includes(term);
+        
+        // Deep search in orders of this customer
+        const customerOrders = orders.filter(o => getBaseName(o.code) === name);
+        const matchesInside = customerOrders.some(order => 
+            (order.items || []).some(it => normalizeText(it.name).includes(term) || normalizeText(it.category).includes(term))
+        );
+
+        const matchesSearch = matchesName || matchesInside;
+
         if (filterAlerts) {
-            const customerOrders = orders.filter(o => getBaseName(o.code) === name);
             const status = getAlertStatus(customerOrders);
             return matchesSearch && (status === 'red' || status === 'orange');
         }
@@ -95,26 +270,57 @@ function OrderQueue({ isOpen, onClose, formatCurrency, catalog, orders, allPayme
   const getTotals = () => {
     const totalOrders = customerOrders.reduce((acc, o) => acc + (o.total || 0), 0);
     
-    // Legacy abonos still in order documents
-    const legacyAbonos = customerOrders.reduce((acc, o) => {
-        // We only sum legacy abono IF it exists and wasn't already registered in customerPayments
-        // In the new v10 system, we prefer the payments collection.
-        let orderTotal = (o.abono || 0);
-        if (o.abonoHistory && Array.isArray(o.abonoHistory)) {
-            orderTotal += o.abonoHistory.reduce((acc2, ah) => acc2 + (parseInt(ah.amount) || 0), 0);
-        }
-        return acc + orderTotal;
-    }, 0);
-
-    // Global payments from new collection
-    const globalAbonos = customerPayments.reduce((acc, p) => acc + (parseInt(p.amount) || 0), 0);
+    // 1. Collect all potential payments
+    const rawPayments = [];
     
-    const totalPaid = legacyAbonos + globalAbonos;
+    // Legacy single abonos in orders
+    customerOrders.forEach(o => {
+        if (o.abono > 0) rawPayments.push({ amount: o.abono, date: o.paymentDate, id: `legacy-${o.id}` });
+        if (o.abonoHistory) o.abonoHistory.forEach((ah, idx) => {
+            rawPayments.push({ 
+                amount: ah.amount, 
+                date: ah.date, 
+                id: `hist-${o.id}-${idx}`,
+                globalId: ah.globalId, // 🔗 Critical link for deduplication
+                type: ah.type 
+            });
+        });
+    });
+
+    // Global Payment documents
+    customerPayments.forEach(p => {
+        rawPayments.push({ 
+            amount: p.amount, 
+            date: p.date, 
+            id: p.id,
+            globalId: p.id, // A global payment IS its own global ID
+            type: p.type 
+        });
+    });
+
+    // 2. Deduplicate (Heuristic: same date and amount = probably same payment)
+    const uniquePayments = [];
+    const seen = new Set();
+    
+    rawPayments.forEach(p => {
+        // v2.16 Ultra-Deduplication: Monto + Fecha es la clave suprema para evitar dobles cobros por desincronización
+        const key = `${p.amount}_${p.date}`;
+        
+        if (!seen.has(key)) {
+            uniquePayments.push(p);
+            seen.add(key);
+        }
+    });
+
+    const totalPaid = totalOrders > 0 
+        ? uniquePayments.reduce((acc, p) => acc + (parseInt(p.amount) || 0), 0)
+        : 0;
     
     return {
       total: totalOrders,
       abonos: totalPaid,
-      saldo: totalOrders - totalPaid
+      saldo: totalOrders - totalPaid,
+      items: totalOrders > 0 ? uniquePayments : [] // Solo mostrar abonos en el historial si hay pedidos
     };
   };
 
@@ -152,6 +358,45 @@ function OrderQueue({ isOpen, onClose, formatCurrency, catalog, orders, allPayme
         setReceiptImage(null);
     }
     setIsUpdating(false);
+  };
+
+  // SALDO A FAVOR v1.0 — Writes ONLY to abonoHistory, never to PAYMENTS_COLLECTION
+  const handleRegisterSaldoFavor = async () => {
+    if (!saldoFavorAmount || isUpdating || !selectedCustomerName) return;
+    const resolvedAdvisor = ADVISOR_CODES[saldoFavorCode.trim()];
+    if (!resolvedAdvisor) return alert('❌ Código de asesor inválido.');
+    const amount = parseInt(saldoFavorAmount);
+    if (!amount || amount <= 0) return alert('❌ Ingresa un monto válido.');
+
+    // Find the most recent order for this customer to attach the credit
+    const targetOrder = [...customerOrders].sort((a, b) =>
+        (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0)
+    )[0];
+    if (!targetOrder) return alert('❌ No hay un pedido activo para este cliente.');
+
+    setIsUpdating(true);
+    try {
+        const currentHistory = targetOrder.abonoHistory || [];
+        const newEntry = {
+            amount,
+            date: new Date().toISOString().split('T')[0],
+            advisorName: resolvedAdvisor,
+            type: 'Saldo a Favor',                    // 🔒 Warehouse-only marker
+            timestamp: new Date().toISOString()
+        };
+        await updateOrder(targetOrder.id, {
+            abonoHistory: [...currentHistory, newEntry]
+        });
+        setSaldoFavorAmount('');
+        setSaldoFavorCode('');
+        setSaldoFavorAdvisorName(null);
+        setShowSaldoFavorForm(false);
+    } catch (e) {
+        console.error('Error al registrar saldo a favor:', e);
+        alert('❌ Error al registrar el saldo a favor.');
+    } finally {
+        setIsUpdating(false);
+    }
   };
 
   const handleReceiptFileChange = async (e) => {
@@ -212,33 +457,56 @@ function OrderQueue({ isOpen, onClose, formatCurrency, catalog, orders, allPayme
         });
     });
 
-    // Payments list
-    const allAbonos = [];
-    customerOrders.forEach(o => {
-        if (o.abono > 0) allAbonos.push({ amount: o.abono, date: o.paymentDate });
-        if (o.abonoHistory) o.abonoHistory.forEach(ah => allAbonos.push({ amount: ah.amount, date: ah.date }));
-    });
-    customerPayments.forEach(p => allAbonos.push({ amount: p.amount, date: p.date }));
-    
+    // Payments list (using deduplicated from getTotals)
     let paymentsText = "";
-    allAbonos.sort((a, b) => new Date(a.date) - new Date(b.date)).forEach(a => {
+    [...(consolidated.items || [])].sort((a, b) => new Date(a.date) - new Date(b.date)).forEach(a => {
         const dateStr = a.date ? a.date.split('-').reverse().join('/') : 'S/F';
-        paymentsText += `📅 Fecha: ${dateStr}: ${formatCurrency(a.amount)}\n`;
+        const typeLabel = a.type === 'Saldo a Favor' ? ' (Saldo a favor)' : '';
+        paymentsText += `📅 Fecha: ${dateStr}: ${formatCurrency(a.amount)}${typeLabel}\n`;
     });
 
+    // DETERMINAR ESTADO DEL MENSAJE (v16.5 Inteligente)
+    const isCotizacion = consolidated.abonos === 0;
+    const isVentaRealizada = consolidated.saldo === 0 && consolidated.abonos > 0;
+    
+    let headerEmoji = "📋";
+    let headerTitle = "ESTADO DE CUENTA CONSOLIDADO";
+    let dateLabel = "Inicio pedido";
+    let totalLabel = "TOTAL DE ESTE SEPARADO";
+
+    if (isCotizacion) {
+        headerTitle = "COTIZACIÓN";
+        dateLabel = "Cotización";
+        totalLabel = "TOTAL DE ESTA COTIZACIÓN";
+    } else if (isVentaRealizada) {
+        headerEmoji = "✅";
+        headerTitle = "VENTA REALIZADA";
+        dateLabel = "Fecha de venta";
+        totalLabel = "TOTAL DE ESTA VENTA";
+    } else {
+        headerTitle = "ESTADO DE CUENTA SEPARADO";
+        dateLabel = "Inicio de separado";
+        totalLabel = "TOTAL DE ESTE SEPARADO";
+    }
+
     // Build Final Text
-    let summaryText = `📋 *ESTADO DE CUENTA CONSOLIDADO* 📋\n`;
+    let summaryText = `${headerEmoji} *${headerTitle}* ${headerEmoji}\n`;
     summaryText += `----------------------------------\n`;
     summaryText += `👤 Cliente: *${selectedCustomerName}*\n`;
     summaryText += `👩‍⚕️ Asesor: *${resolvedAdvisor}*\n\n`;
-    summaryText += `*Inicio pedido: ${startDate}*\n`;
+    summaryText += `*${dateLabel}: ${startDate}*\n`;
     summaryText += itemsText;
     summaryText += `----------------------------------\n`;
-    summaryText += `💰 *TOTAL DE ESTE SEPARADO: ${formatCurrency(consolidated.total)}*\n\n`;
-    summaryText += `💵 *ABONOS*\n`;
-    summaryText += paymentsText;
-    summaryText += `💰 *TOTAL ABONOS: ${formatCurrency(consolidated.abonos)}*\n\n`;
-    summaryText += `💰 *RESTA: ${formatCurrency(consolidated.saldo)}*\n`;
+    summaryText += `💰 *${totalLabel}: ${formatCurrency(consolidated.total)}*\n\n`;
+
+    // Solo mostrar abonos y resta si NO es una cotización
+    if (!isCotizacion) {
+        summaryText += `💵 *ABONOS*\n`;
+        summaryText += paymentsText;
+        summaryText += `💰 *TOTAL ABONOS: ${formatCurrency(consolidated.abonos)}*\n\n`;
+        summaryText += `💰 *RESTA: ${formatCurrency(consolidated.saldo)}*\n`;
+    }
+
     summaryText += `✅ Mundo Rosa agradece tu preferencia.`;
 
     navigator.clipboard.writeText(summaryText).then(() => {
@@ -285,9 +553,50 @@ function OrderQueue({ isOpen, onClose, formatCurrency, catalog, orders, allPayme
     }
   };
 
+  const handleMarkAsSoldOut = async (order, itemIndex) => {
+    if (isUpdating) return;
+    const item = order.items[itemIndex];
+    if (!item) return;
+
+    if (!window.confirm(`🚨 AGOTADO GLOBAL: ¿Estás totalmente seguro de eliminar "${item.name}" de la tienda y del almacén? Esta acción es permanente.`)) return;
+
+    try {
+        setIsUpdating(true);
+        // 1. Identify product ID
+        let realProductId = item.id;
+        const catalogTarget = (catalog || []).find(p => 
+            (item.sku && p.sku === item.sku) || 
+            (p.name === item.name)
+        );
+        if (catalogTarget) realProductId = catalogTarget.id;
+
+        // 2. Sync removal: Prepare updated items list
+        const updatedItems = order.items.filter((_, idx) => idx !== itemIndex);
+        
+        // 3. ATOMIC PURGE v4.0
+        const success = await deleteProductGlobalAtomic(realProductId, order.id, updatedItems);
+
+        if (success) {
+            // v4.4: Safety delay to ensure Firestore sync before reload
+            localStorage.setItem('MUNDOROSA_REOPEN_WAREHOUSE', 'true');
+            console.log("♻️ Purga atómica exitosa. Esperando sincronización...");
+            setTimeout(() => {
+                window.location.reload();
+            }, 800);
+        } else {
+            alert("❌ Error en la purga atómica. Intenta de nuevo.");
+            setIsUpdating(false);
+        }
+    } catch (e) {
+        console.error("Error in atomic sold out:", e);
+        alert("❌ Error crítico al procesar el agotado global.");
+        setIsUpdating(false);
+    }
+  };
+
   const handleDeleteItem = async (order, itemIndex) => {
     if (isUpdating) return;
-    if (!window.confirm("🗑️ ¿Estás seguro de eliminar este producto del pedido?")) return;
+    if (!window.confirm("🗑️ ¿Eliminar este producto SOLO de este pedido?")) return;
 
     try {
         setIsUpdating(true);
@@ -296,19 +605,24 @@ function OrderQueue({ isOpen, onClose, formatCurrency, catalog, orders, allPayme
         if (updatedItems.length === 0) {
             if (window.confirm("⚠️ El pedido quedará vacío. ¿Deseas eliminar todo el pedido?")) {
                 await deleteOrder(order.id);
-                return;
             } else {
-                return;
+                await updateOrder(order.id, { items: [], total: 0 });
             }
+        } else {
+            const newTotal = updatedItems.reduce((acc, it) => acc + (it.qty * getItemPrice(it, order)), 0);
+            await updateOrder(order.id, { 
+                items: updatedItems,
+                total: newTotal 
+            });
         }
 
-        // Recalculate total
-        const newTotal = updatedItems.reduce((acc, it) => acc + (it.qty * getItemPrice(it, order)), 0);
-        
-        await updateOrder(order.id, { 
-            items: updatedItems,
-            total: newTotal 
-        });
+        // v4.4: Absolute refresh with safety delay
+        if (selectedCustomerName) localStorage.setItem('lastSelectedCustomer', selectedCustomerName);
+        localStorage.setItem('MUNDOROSA_REOPEN_WAREHOUSE', 'true');
+        console.log("\ud83d\uddd1\ufe0f Eliminaci\u00f3n exitosa. Sincronizando antes de refrescar...");
+        setTimeout(() => {
+            window.location.reload();
+        }, 800);
     } catch (e) {
         console.error("Error deleting item", e);
         alert("❌ Error al eliminar producto");
@@ -366,21 +680,65 @@ function OrderQueue({ isOpen, onClose, formatCurrency, catalog, orders, allPayme
 
   const handleComplete = async () => {
     const normalizedName = selectedCustomerName.trim().toUpperCase();
-    if (confirm(`⚠️ ¿CONFIRMAS EL DESPACHO TOTAL?\n\nAl confirmar se eliminarán TODOS los pedidos de ${normalizedName} y su historial de pagos para cerrar el ciclo.`)) {
+    // v8.0: Blindaje de confirmación para evitar cierres accidentales
+    if (window.confirm(`🚀 \u00bfEST\u00c1S SEGURO DE CERRAR EL CLIENTE ${normalizedName}?\n\nEsta acci\u00f3n eliminar\u00e1 permanentemente TODOS sus pedidos y abonos actuales del almac\u00e9n para finalizar su ciclo.`)) {
       setIsUpdating(true);
-      const success = await purgeCustomerData(normalizedName);
-      if (success) {
-        setSelectedCustomerName(null);
-        alert("✅ Ciclo completado. Cliente y registros eliminados del sistema.");
+      try {
+        const success = await purgeCustomerData(normalizedName);
+        if (success) {
+            localStorage.setItem('MUNDOROSA_REOPEN_WAREHOUSE', 'true');
+            console.log("♻️ Despacho exitoso. Recargando para limpieza total...");
+            window.location.reload();
+        } else {
+            alert("❌ Error al procesar el despacho.");
+        }
+      } catch (e) {
+        alert("❌ Error técnico al despachar: " + e.message);
       }
       setIsUpdating(false);
     }
   };
 
-  const handleToggleSeparado = async (id, currentStatus) => {
+  const handleToggleSeparado = async (id, currentStatus, currentLocation, isFirstButton) => {
     setIsUpdating(true);
+    let newLocation = currentLocation;
+    
+    // Solo manejamos lógica de ubicación si es el primer botón de la lista
+    if (isFirstButton) {
+        if (currentStatus !== 'separated') {
+            const otherOrderWithLocation = orders.find(o => 
+                getBaseName(o.code) === (selectedCustomerName || "").trim().toUpperCase() && 
+                o.separacionLocation && 
+                o.separacionLocation.trim() !== ''
+            );
+
+            if (otherOrderWithLocation) {
+                newLocation = otherOrderWithLocation.separacionLocation;
+            } else {
+                const loc = prompt("Lugar de separación (Ej. Canasta 5, Caja A):", currentLocation || "");
+                if (loc === null) {
+                    setIsUpdating(false);
+                    return;
+                }
+                newLocation = loc.trim();
+            }
+        } else {
+            if (!window.confirm("⚠️ ¿Estás totalmente seguro de marcar este pedido como NO SEPARADO? Esto borrará la ubicación registrada para esta tanda.")) {
+                setIsUpdating(false);
+                return;
+            }
+        }
+    }
+
     const newStatus = currentStatus === 'separated' ? 'pending' : 'separated';
-    await updateOrder(id, { status: newStatus });
+    const payload = { status: newStatus };
+    if (newStatus === 'separated') {
+        payload.separacionLocation = isFirstButton ? newLocation : null;
+    } else {
+        payload.separacionLocation = null;
+    }
+
+    await updateOrder(id, payload);
     setIsUpdating(false);
   };
 
@@ -390,11 +748,100 @@ function OrderQueue({ isOpen, onClose, formatCurrency, catalog, orders, allPayme
     }
   };
 
+
+  const handleSaveRename = async () => {
+    if (!tempName.trim()) return;
+    const oldName = selectedCustomerName;
+    const freshName = tempName.trim().toUpperCase();
+    
+    if (oldName === freshName) {
+        setIsEditingName(false);
+        return;
+    }
+    
+    setIsUpdating(true);
+    try {
+        const success = await renameCustomer(oldName, freshName);
+        if (success) {
+            // Force local update
+            setJustRenamedFrom(oldName);
+            setSelectedCustomerName(freshName);
+            localStorage.setItem('lastSelectedCustomer', freshName); // Actualizar memoria tras renombrar
+            setIsEditingName(false);
+            // Close dropdown if it was open to help focus reset
+            setShowOrdersList(false);
+        } else {
+            alert("❌ Error al renombrar cliente.");
+        }
+    } catch (err) {
+        console.error(err);
+        alert("❌ Error de conexión al renombrar.");
+    } finally {
+        setIsUpdating(false);
+    }
+  };
+
   if (!isOpen) return null;
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <div className="modal-overlay">
       <div className="modal-content warehouse-modal" onClick={e => e.stopPropagation()}>
+        
+        {/* TOP TIMERS BAR v3.0 */}
+        {activeTimers.length > 0 && (
+          <div style={{
+            background: '#0f172a',
+            padding: '8px 15px',
+            borderBottom: '1px solid #334155',
+            display: 'flex',
+            gap: '10px',
+            overflowX: 'auto',
+            minHeight: '45px',
+            alignItems: 'center'
+          }}>
+            <span style={{fontSize: '0.7rem', color: '#94a3b8', fontWeight: 'bold', whiteSpace: 'nowrap'}}>⏱️ ACTIVOS:</span>
+            {activeTimers.map(timer => {
+              const startedAt = timer.startedAt?.toDate ? timer.startedAt.toDate() : new Date(timer.createdAt || new Date());
+              const now = new Date();
+              const elapsed = now - startedAt;
+              const remaining = Math.max(0, timer.durationMs - elapsed);
+              const isExpired = remaining <= 0;
+              
+              const minutes = Math.floor(remaining / 60000);
+              const seconds = Math.floor((remaining % 60000) / 1000);
+
+              return (
+                <div 
+                  key={timer.id}
+                  className={isExpired ? 'timer-expired' : ''}
+                  style={{
+                    padding: '4px 10px',
+                    borderRadius: '8px',
+                    background: isExpired ? '#ef4444' : 'rgba(255,255,255,0.05)',
+                    color: isExpired ? '#fff' : '#fff',
+                    fontSize: '0.75rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    whiteSpace: 'nowrap',
+                    border: isExpired ? 'none' : '1px solid #334155',
+                    transition: 'all 0.3s'
+                  }}
+                >
+                  <span style={{fontWeight: '900'}}>{timer.customerName}:</span>
+                  <span>{isExpired ? '¡TIEMPO!' : `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`}</span>
+                  <button 
+                    onClick={() => deleteCustomerTimer(timer.id)}
+                    style={{background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', fontSize: '0.8rem', padding: '0 2px'}}
+                  >
+                    ✕
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
         <div className="modal-header">
           <div className="header-title-row">
             <h2>📦 Gestión por Cliente</h2>
@@ -411,9 +858,135 @@ function OrderQueue({ isOpen, onClose, formatCurrency, catalog, orders, allPayme
           >
             <div className="toggle-info">
               <small>Expediente de Cliente:</small>
-              <span className="current-name">
-                {selectedCustomerName || "Seleccionar un cliente..."}
-              </span>
+              <div className="current-name" style={{ display: 'flex', alignItems: 'center', gap: '8px', minHeight: '30px' }}>
+                {isEditingName ? (
+                   <>
+                     <input
+                       type="text"
+                       autoFocus
+                       value={tempName}
+                       onChange={(e) => setTempName(e.target.value.toUpperCase())}
+                       onClick={(e) => e.stopPropagation()}
+                       onKeyDown={(e) => {
+                           if(e.key === 'Enter') { 
+                              e.stopPropagation(); 
+                              e.preventDefault();
+                              handleSaveRename(); 
+                           }
+                           if(e.key === 'Escape') { 
+                              e.stopPropagation(); 
+                              e.preventDefault();
+                              setIsEditingName(false); 
+                           }
+                       }}
+                       style={{ 
+                          color: '#000', 
+                          padding: '2px 8px', 
+                          borderRadius: '4px', 
+                          fontSize: '0.95rem', 
+                          border: '2px solid #ec4899', 
+                          background: '#fff', 
+                          width: '100%', 
+                          outline: 'none',
+                          fontWeight: 'bold'
+                       }}
+                       placeholder="Nombre..."
+                       disabled={isUpdating}
+                     />
+                     <button 
+                        onClick={(e) => {
+                           e.stopPropagation();
+                           e.preventDefault();
+                           handleSaveRename();
+                        }}
+                        disabled={isUpdating || !tempName.trim()}
+                        style={{
+                           background: '#10b981',
+                           color: '#fff',
+                           border: 'none',
+                           borderRadius: '4px',
+                           padding: '4px 8px',
+                           fontSize: '1rem',
+                           cursor: 'pointer',
+                           opacity: isUpdating ? 0.5 : 1
+                        }}
+                        title="Guardar cambio"
+                     >
+                        {isUpdating ? '⏳' : '✅'}
+                     </button>
+                     <button 
+                        onClick={(e) => {
+                           e.stopPropagation();
+                           e.preventDefault();
+                           setIsEditingName(false);
+                        }}
+                        disabled={isUpdating}
+                        style={{
+                           background: '#ef4444',
+                           color: '#fff',
+                           border: 'none',
+                           borderRadius: '4px',
+                           padding: '4px 8px',
+                           fontSize: '1rem',
+                           cursor: 'pointer',
+                           opacity: isUpdating ? 0.5 : 1
+                        }}
+                        title="Cancelar"
+                     >
+                        ❌
+                     </button>
+                   </>
+                ) : (
+                   <>
+                     {selectedCustomerName || "Seleccionar un cliente..."}
+                     {selectedCustomerName && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginLeft: '8px' }}>
+                           <span 
+                              className="rename-pencil"
+                              onClick={(e) => {
+                                 e.stopPropagation();
+                                 e.preventDefault();
+                                 setTempName('');
+                                 setIsEditingName(true);
+                              }}
+                              style={{ fontSize: '1.1rem', cursor: 'pointer', opacity: 0.8, padding: '2px', transition: 'transform 0.2s' }}
+                              onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.2)'}
+                              onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                              title="Renombrar cliente"
+                           >
+                              ✏️
+                           </span>
+                           <span
+                               onClick={handleReadNote}
+                               style={{ 
+                                  fontSize: '1.2rem', 
+                                  cursor: 'pointer', 
+                                  opacity: customerNote ? 1 : 0.4, 
+                                  padding: '2px', 
+                                  transition: 'all 0.2s', 
+                                  filter: customerNote ? 'drop-shadow(0 0 5px rgba(236,72,153,0.8))' : 'none',
+                                  transform: customerNote ? 'scale(1.1)' : 'scale(1)'
+                               }}
+                               onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.3)'}
+                               onMouseLeave={(e) => e.currentTarget.style.transform = customerNote ? 'scale(1.1)' : 'scale(1)'}
+                               title={customerNote ? "Leer nota activa" : "No hay notas aún"}
+                           >
+                               📖
+                           </span>
+                           <span
+                               onClick={handleEditNote}
+                               style={{ fontSize: '1.1rem', cursor: 'pointer', opacity: 0.8, padding: '2px', transition: 'transform 0.2s' }}
+                               onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.2)'}
+                               onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                               title="Escribir/Editar nota"
+                           >
+                               📝
+                           </span>
+                        </div>
+                     )}
+                   </>
+                )}
+              </div>
             </div>
             <span className={`toggle-arrow ${showOrdersList ? 'open' : ''}`}>▼</span>
           </button>
@@ -429,7 +1002,7 @@ function OrderQueue({ isOpen, onClose, formatCurrency, catalog, orders, allPayme
                   onClick={(e) => e.stopPropagation()} 
                   className="order-search-input"
                   style={{ flex: 1 }}
-                  autoFocus
+                  autoFocus={!isEditingName}
                 />
                 <button 
                   className={`alert-filter-btn ${filterAlerts ? 'active' : ''}`}
@@ -451,15 +1024,39 @@ function OrderQueue({ isOpen, onClose, formatCurrency, catalog, orders, allPayme
                   const batchCount = customerOrders.length;
                   const status = getAlertStatus(customerOrders);
 
+                  // CÁLCULO AUTÓNOMO v5.0 (Diodo)
+                  // El almacén solo confía en la información local del pedido actual.
+                  const hasAbonos = customerOrders.some(o => (o.abono > 0) || (o.abonoHistory && o.abonoHistory.length > 0));
+                  
+                  let daysCountText = "";
+                  let customStyle = {};
+
+                  if (!hasAbonos) {
+                      const now = new Date();
+                      let oldest = now;
+                      customerOrders.forEach(o => {
+                          const d = o.createdAt?.toDate ? o.createdAt.toDate() : new Date((o.createdAt?.seconds || 0) * 1000);
+                          if (d < oldest) oldest = d;
+                      });
+                      const diff = Math.floor((now - oldest) / (1000 * 60 * 60 * 24));
+                      daysCountText = `⏳ ${diff}d`;
+                      if (diff >= 6) customStyle = { color: '#ef4444', fontWeight: '900' };
+                  } else {
+                      daysCountText = "✅";
+                  }
+
                   return (
                     <button 
                       key={name} 
                       className={`dropdown-item ${selectedCustomerName === name ? 'active' : ''}`}
                       onClick={() => {
                         setSelectedCustomerName(name);
+                        localStorage.setItem('lastSelectedCustomer', name); // Sincronizar memoria al seleccionar manualmente
                         setShowOrdersList(false);
                       }}
+                      style={customStyle}
                     >
+                      <span style={{ fontSize: '0.8rem', marginRight: '8px', opacity: 0.8 }}>{daysCountText}</span>
                       <span className={`status-dot ${status}`}></span>
                       <span className="item-name-text">{name}</span>
                       <span className="batch-tag">{batchCount} tanda(s)</span>
@@ -529,10 +1126,10 @@ function OrderQueue({ isOpen, onClose, formatCurrency, catalog, orders, allPayme
 
                 {!isSummaryCollapsed && (
                   <>
-                    {/* Global Payment History for UI */}
-                    {(customerPayments.length > 0 || customerOrders.some(o => (o.abono || 0) > 0)) && (
+                    {/* Independent Payment History for UI v2.5 */}
+                    {customerOrders.some(o => (o.abono > 0 || (o.abonoHistory && o.abonoHistory.length > 0))) && (
                         <div style={{
-                            maxHeight: '100px', 
+                            maxHeight: '120px', 
                             overflowY: 'auto', 
                             fontSize: '0.8rem', 
                             color: '#cbd5e1', 
@@ -541,7 +1138,7 @@ function OrderQueue({ isOpen, onClose, formatCurrency, catalog, orders, allPayme
                             borderRadius: '10px',
                             display: 'flex',
                             flexDirection: 'column',
-                            gap: '4px'
+                            gap: '8px'
                         }}>
                             {customerOrders.map(o => (o.abono > 0 || (o.abonoHistory && o.abonoHistory.length > 0)) && (
                                 <React.Fragment key={o.id}>
@@ -552,26 +1149,113 @@ function OrderQueue({ isOpen, onClose, formatCurrency, catalog, orders, allPayme
                                         </div>
                                     )}
                                     {o.abonoHistory?.map((ah, idx) => (
-                                        <div key={idx} style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
-                                            <span style={{color: '#f8fafc'}}>🔹 Abono Extra:</span>
-                                            <span style={{fontWeight: 'bold', color: '#fff'}}>{formatCurrency(ah.amount)} <small style={{opacity: 0.6, fontWeight: 'normal'}}>- {ah.date.split('-').reverse().join('/')}</small></span>
+                                        <div key={idx} style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '4px'}}>
+                                            <div style={{display: 'flex', flexDirection: 'column'}}>
+                                                <span style={{color: ah.type === 'Saldo a Favor' ? '#38bdf8' : '#f8fafc', fontSize: '0.75rem'}}>
+                                                    {ah.type === 'Saldo a Favor' 
+                                                        ? `🏦 Asesor ${ah.advisorName} (Saldo a favor):` 
+                                                        : `🔹 Asesor ${ah.advisorName} (Abono):`}
+                                                </span>
+                                                <small style={{color: '#94a3b8', fontSize: '0.65rem'}}>{ah.date ? ah.date.split('-').reverse().join('/') : 'S/F'}</small>
+                                            </div>
+                                            <div style={{display: 'flex', alignItems: 'center', gap: '8px'}}>
+                                                <div style={{fontWeight: 'bold', color: ah.type === 'Saldo a Favor' ? '#0ea5e9' : '#10b981'}}>
+                                                    {editingLocalAbono?.orderId === o.id && editingLocalAbono?.index === idx ? (
+                                                        <div style={{display: 'flex', flexDirection: 'column', gap: '4px'}}>
+                                                            <input 
+                                                                type="number" 
+                                                                value={localEditAmount}
+                                                                onChange={(e) => setLocalEditAmount(e.target.value)}
+                                                                style={{width: '100px', padding: '3px 5px', fontSize: '0.8rem', borderRadius: '4px', border: '1px solid #38bdf8', background: '#0f172a', color: '#fff'}}
+                                                                autoFocus
+                                                            />
+                                                            <input 
+                                                                type="date" 
+                                                                value={localEditDate}
+                                                                onChange={(e) => setLocalEditDate(e.target.value)}
+                                                                style={{width: '100px', padding: '3px 5px', fontSize: '0.7rem', borderRadius: '4px', border: '1px solid #38bdf8', background: '#0f172a', color: '#fff'}}
+                                                            />
+                                                         </div>
+                                                    ) : (
+                                                        formatCurrency(ah.amount)
+                                                    )}
+                                                </div>
+                                                
+                                                {editingLocalAbono?.orderId === o.id && editingLocalAbono?.index === idx ? (
+                                                    <div style={{display: 'flex', gap: '4px', alignItems: 'center'}}>
+                                                        <input 
+                                                            type="password" 
+                                                            placeholder="Cód." 
+                                                            value={localEditAuthCode}
+                                                            onChange={(e) => setLocalEditAuthCode(e.target.value)}
+                                                            maxLength={4}
+                                                            style={{width: '50px', padding: '2px 5px', fontSize: '0.7rem', borderRadius: '4px', border: '1px solid #ef4444', background: '#0f172a', color: '#fff'}}
+                                                        />
+                                                        <button 
+                                                            onClick={async () => {
+                                                                const resolved = ADVISOR_CODES[localEditAuthCode.trim()];
+                                                                if (!resolved) return alert('❌ Código inválido.');
+                                                                
+                                                                try {
+                                                                    const amount = parseInt(localEditAmount);
+                                                                    if (isNaN(amount) || amount <= 0) return alert('❌ Ingresa un monto válido.');
+
+                                                                    const success = await updateOrderAbono(o.id, idx, { 
+                                                                        amount: amount,
+                                                                        date: localEditDate || ah.date || new Date().toISOString().split('T')[0],
+                                                                        advisorName: `${resolved} (Corregido)`
+                                                                    });
+                                                                    if (success) {
+                                                                        setEditingLocalAbono(null);
+                                                                        setLocalEditAuthCode('');
+                                                                    } else {
+                                                                        alert('❌ La actualización falló en el servidor.');
+                                                                    }
+                                                                } catch (err) {
+                                                                    console.error(err);
+                                                                    alert('❌ Error técnico: ' + err.message);
+                                                                }
+                                                            }}
+                                                            style={{background: '#10b981', color: '#fff', border: 'none', padding: '3px 6px', borderRadius: '4px', fontSize: '0.75rem', cursor: 'pointer'}}
+                                                        >
+                                                            ✅
+                                                        </button>
+                                                        <button 
+                                                            onClick={async () => {
+                                                                const resolved = ADVISOR_CODES[localEditAuthCode.trim()];
+                                                                if (!resolved) return alert('❌ Código inválido.');
+                                                                if (!confirm(`¿Estás seguro de ELIMINAR este registro de ${formatCurrency(ah.amount)}?`)) return;
+                                                                const success = await deleteOrderAbono(o.id, idx);
+                                                                if (success) {
+                                                                    setEditingLocalAbono(null);
+                                                                    setLocalEditAuthCode('');
+                                                                } else alert('❌ Error al eliminar.');
+                                                            }}
+                                                            style={{background: '#ef4444', color: '#fff', border: 'none', padding: '3px 6px', borderRadius: '4px', fontSize: '0.75rem', cursor: 'pointer'}}
+                                                            title="Eliminar permanentemente"
+                                                        >
+                                                            🗑️
+                                                        </button>
+                                                        <button onClick={() => setEditingLocalAbono(null)} style={{background: '#64748b', color: '#fff', border: 'none', padding: '3px 6px', borderRadius: '4px', fontSize: '0.75rem', cursor: 'pointer'}}>❌</button>
+                                                    </div>
+                                                ) : (
+                                                    <button 
+                                                        onClick={() => {
+                                                            setEditingLocalAbono({ orderId: o.id, index: idx });
+                                                            setLocalEditAmount(ah.amount);
+                                                            setLocalEditDate(ah.date || '');
+                                                            setLocalEditAuthCode('');
+                                                        }}
+                                                        style={{background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.8rem', opacity: 0.6}}
+                                                        title="Editar este abono"
+                                                    >
+                                                        ✏️
+                                                    </button>
+                                                )}
+                                            </div>
                                         </div>
                                     ))}
                                 </React.Fragment>
-                            ))}
-                            {customerPayments.map(p => (
-                                <div key={p.id} style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
-                                    <div style={{display: 'flex', alignItems: 'center', gap: '5px'}}>
-                                        <button 
-                                            onClick={() => handleDeleteSinglePayment(p.id)}
-                                            style={{background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '0', fontSize: '0.9rem'}}
-                                        >
-                                            🗑️
-                                        </button>
-                                        <span style={{color: '#f8fafc'}}>🔹 {p.advisorName ? p.advisorName : (p.type?.includes('Global') ? 'Abono' : 'Abono Extra')}:</span>
-                                    </div>
-                                    <span style={{fontWeight: 'bold', color: '#10b981'}}>{formatCurrency(p.amount)} <small style={{opacity: 0.6, fontWeight: 'normal', color: '#fff'}}>- {(p.date || '').split('-').reverse().join('/') || 'S/F'}</small></span>
-                                </div>
                             ))}
                         </div>
                     )}
@@ -597,6 +1281,49 @@ function OrderQueue({ isOpen, onClose, formatCurrency, catalog, orders, allPayme
                             }}
                         >
                             {showAbonoForm ? '✕ Cancelar Abono' : '➕💰 Registrar Abono'}
+                        </button>
+                    </div>
+                    {/* Timer button row v2.15 */}
+                    <div style={{display: 'flex', gap: '8px', marginTop: '0px'}}>
+                        <button
+                            onClick={handleStartTimer}
+                            style={{
+                                flex: 1,
+                                background: 'linear-gradient(90deg, #92400e, #d97706)',
+                                color: '#fff',
+                                border: 'none',
+                                borderRadius: '10px',
+                                padding: '10px',
+                                fontSize: '0.75rem',
+                                fontWeight: 'bold',
+                                cursor: 'pointer'
+                            }}
+                        >
+                            ⏱️ Iniciar Temporizador
+                        </button>
+                    </div>
+                    {/* SALDO A FAVOR button row v1.0 */}
+                    <div style={{display: 'flex', gap: '8px', marginTop: '0px'}}>
+                        <button
+                            onClick={() => {
+                                setShowSaldoFavorForm(!showSaldoFavorForm);
+                                setShowAbonoForm(false); // close the other form
+                            }}
+                            style={{
+                                flex: 1,
+                                background: showSaldoFavorForm
+                                    ? '#ef4444'
+                                    : 'linear-gradient(90deg, #0369a1, #0ea5e9)',
+                                color: '#fff',
+                                border: 'none',
+                                borderRadius: '10px',
+                                padding: '10px',
+                                fontSize: '0.75rem',
+                                fontWeight: 'bold',
+                                cursor: 'pointer'
+                            }}
+                        >
+                            {showSaldoFavorForm ? '✕ Cancelar' : '🏦 SALDOS A FAVOR'}
                         </button>
                     </div>
                   </>
@@ -700,6 +1427,62 @@ function OrderQueue({ isOpen, onClose, formatCurrency, catalog, orders, allPayme
                         </button>
                     </div>
                 )}
+
+                {/* SALDO A FAVOR FORM v1.0 */}
+                {showSaldoFavorForm && (
+                    <div style={{
+                        marginTop: '10px',
+                        padding: '14px',
+                        background: 'rgba(3, 105, 161, 0.12)',
+                        borderRadius: '12px',
+                        border: '1px solid #0ea5e9',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '8px'
+                    }}>
+                        <span style={{color: '#38bdf8', fontWeight: 'bold', fontSize: '0.8rem'}}>🏦 SALDO A FAVOR — Solo Almacén</span>
+                        <input
+                            type="number"
+                            placeholder="Monto del saldo a favor $"
+                            value={saldoFavorAmount}
+                            onChange={(e) => setSaldoFavorAmount(e.target.value)}
+                            style={{background: '#000', border: '1px solid #334155', borderRadius: '8px', padding: '8px', color: '#fff', width: '100%', boxSizing: 'border-box'}}
+                        />
+                        <div style={{display: 'flex', alignItems: 'center', gap: '8px'}}>
+                            <input
+                                type="password"
+                                placeholder="🔒 Código de asesor"
+                                value={saldoFavorCode}
+                                maxLength={4}
+                                onChange={(e) => {
+                                    const val = e.target.value;
+                                    setSaldoFavorCode(val);
+                                    setSaldoFavorAdvisorName(ADVISOR_CODES[val.trim()] || null);
+                                }}
+                                style={{flex: 1, background: '#000', border: `1px solid ${saldoFavorAdvisorName ? '#0ea5e9' : '#334155'}`, borderRadius: '8px', padding: '8px', color: '#fff', fontSize: '0.9rem', letterSpacing: '3px'}}
+                            />
+                            {saldoFavorAdvisorName && (
+                                <span style={{fontSize: '0.75rem', color: '#38bdf8', fontWeight: 'bold', whiteSpace: 'nowrap'}}>✅ {saldoFavorAdvisorName}</span>
+                            )}
+                        </div>
+                        <button
+                            onClick={handleRegisterSaldoFavor}
+                            disabled={isUpdating || !saldoFavorAdvisorName || !saldoFavorAmount}
+                            style={{
+                                background: (saldoFavorAdvisorName && saldoFavorAmount) ? '#0369a1' : '#475569',
+                                color: '#fff',
+                                border: 'none',
+                                borderRadius: '8px',
+                                padding: '10px',
+                                fontWeight: 'bold',
+                                cursor: (saldoFavorAdvisorName && saldoFavorAmount) ? 'pointer' : 'not-allowed'
+                            }}
+                        >
+                            {isUpdating ? 'Registrando...' : '✅ Confirmar Saldo a Favor'}
+                        </button>
+                        <p style={{fontSize: '0.65rem', color: '#64748b', margin: 0, textAlign: 'center'}}>* Solo afecta el saldo del almacén. No se registra en Consultar Abonos.</p>
+                    </div>
+                )}
             </div>
         )}
 
@@ -739,7 +1522,16 @@ function OrderQueue({ isOpen, onClose, formatCurrency, catalog, orders, allPayme
                   }}>
                       <div style={{display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', alignItems: 'center'}}>
                           <span style={{color: '#475569', fontWeight: '800'}}>VALOR PEDIDO:</span>
-                          <span style={{color: '#1e293b', fontWeight: '900', fontSize: '1rem'}}>{formatCurrency(order.total || 0)}</span>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                              <span style={{color: '#1e293b', fontWeight: '900', fontSize: '1rem'}}>{formatCurrency(order.total || 0)}</span>
+                              <button 
+                                 onClick={() => handleDeleteFullOrder(order.id, order.code)}
+                                 title="Eliminar PEDIDO COMPLETO"
+                                 style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.2rem', padding: '0 5px' }}
+                              >
+                                 🗑️
+                              </button>
+                          </div>
                       </div>
                       <div style={{display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem'}}>
                           <span style={{color: '#475569', fontWeight: '600'}}>🗓️ Ingresado:</span>
@@ -765,38 +1557,58 @@ function OrderQueue({ isOpen, onClose, formatCurrency, catalog, orders, allPayme
                           <div className="item-text" style={{flex: 1}}>
                              <span className="item-name" style={{fontSize: '0.85rem', display: 'block', marginBottom: '4px'}}>{item.name}</span>
                              <div style={{display: 'flex', alignItems: 'center', gap: '8px'}}>
-                                <div style={{
-                                    display: 'flex', 
-                                    alignItems: 'center', 
-                                    background: 'rgba(0,0,0,0.08)', 
-                                    borderRadius: '8px',
-                                    padding: '2px 5px',
-                                    border: '1px solid rgba(0,0,0,0.1)'
-                                }}>
-                                    <button 
-                                        onClick={() => handleUpdateItemQty(order, idx, (item.qty || 1) - 1)}
-                                        disabled={isUpdating || item.qty <= 1}
-                                        style={{background: 'none', border: 'none', color: '#1e293b', padding: '5px', cursor: 'pointer', fontSize: '1.2rem', minWidth: '30px'}}
-                                    >
-                                        -
-                                    </button>
-                                    <span style={{
-                                        minWidth: '25px', 
-                                        textAlign: 'center', 
-                                        fontWeight: 'bold', 
-                                        fontSize: '1rem',
-                                        color: order.status === 'separated' ? '#ff914d' : '#ec4899'
+                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '5px' }}>
+                                    <div style={{
+                                        display: 'flex', 
+                                        padding: '2px 5px',
+                                        background: 'rgba(0,0,0,0.08)', 
+                                        borderRadius: '8px',
+                                        border: '1px solid rgba(0,0,0,0.1)',
+                                        alignItems: 'center'
                                     }}>
-                                        {item.qty}
-                                    </span>
-                                    <button 
-                                        onClick={() => handleUpdateItemQty(order, idx, (item.qty || 1) + 1)}
+                                        <button 
+                                            onClick={() => handleUpdateItemQty(order, idx, (item.qty || 1) - 1)}
+                                            disabled={isUpdating || item.qty <= 1}
+                                            style={{background: 'none', border: 'none', color: '#1e293b', padding: '5px', cursor: 'pointer', fontSize: '1.2rem', minWidth: '30px'}}
+                                        >
+                                            -
+                                        </button>
+                                        <span style={{
+                                            minWidth: '25px', 
+                                            textAlign: 'center', 
+                                            fontWeight: 'bold', 
+                                            fontSize: '1rem',
+                                            color: order.status === 'separated' ? '#ff914d' : '#ec4899'
+                                        }}>
+                                            {item.qty}
+                                        </span>
+                                        <button 
+                                            onClick={() => handleUpdateItemQty(order, idx, (item.qty || 1) + 1)}
+                                            disabled={isUpdating}
+                                            style={{background: 'none', border: 'none', color: '#1e293b', padding: '5px', cursor: 'pointer', fontSize: '1.1rem', minWidth: '30px'}}
+                                        >
+                                            +
+                                        </button>
+                                    </div>
+                                    <button
+                                        onClick={() => handleMarkAsSoldOut(order, idx)}
                                         disabled={isUpdating}
-                                        style={{background: 'none', border: 'none', color: '#1e293b', padding: '5px', cursor: 'pointer', fontSize: '1.1rem', minWidth: '30px'}}
+                                        style={{
+                                            background: '#fff',
+                                            border: '1px solid #ef4444',
+                                            borderRadius: '20px',
+                                            color: '#ef4444',
+                                            fontSize: '0.65rem',
+                                            padding: '2px 8px',
+                                            fontWeight: 'bold',
+                                            cursor: 'pointer',
+                                            textTransform: 'uppercase',
+                                            opacity: isUpdating ? 0.5 : 1
+                                        }}
                                     >
-                                        +
+                                        {isUpdating ? '...' : 'AGOTADO'}
                                     </button>
-                                </div>
+                                 </div>
                                 
                                 <span style={{fontSize: '0.7rem', color: '#94a3b8', background: 'rgba(0,0,0,0.2)', padding: '2px 6px', borderRadius: '4px'}}>
                                     {formatCurrency(getItemPrice(item, order))} c/u
@@ -815,7 +1627,6 @@ function OrderQueue({ isOpen, onClose, formatCurrency, catalog, orders, allPayme
                                         padding: '5px',
                                         fontSize: '1.1rem'
                                     }}
-                                    title="Eliminar producto"
                                 >
                                     🗑️
                                 </button>
@@ -826,9 +1637,21 @@ function OrderQueue({ isOpen, onClose, formatCurrency, catalog, orders, allPayme
                     })}
                    </div>
 
+                  {oIdx === 0 && order.status === 'separated' && order.separacionLocation && (
+                      <div style={{
+                          textAlign: 'center', 
+                          fontSize: '0.75rem', 
+                          color: '#ff914d', 
+                          marginBottom: '6px',
+                          fontWeight: '800',
+                          letterSpacing: '1px'
+                      }}>
+                         📍 UBICACIÓN: {order.separacionLocation}
+                      </div>
+                  )}
                   <button 
                     className="complete-batch-btn" 
-                    onClick={() => handleToggleSeparado(order.id, order.status)}
+                    onClick={() => handleToggleSeparado(order.id, order.status, order.separacionLocation, oIdx === 0)}
                     style={{
                         background: order.status === 'separated' ? 'linear-gradient(90deg, #f97316, #ea580c)' : '#2dd4bf',
                         fontWeight: 'bold',
