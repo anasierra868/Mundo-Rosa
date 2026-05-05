@@ -1,0 +1,1 @@
+import{F as e,K as t,M as n,z as r}from"./index.esm-BaUoIjpZ.js";export{n as collection,e as doc,r as getDocs,t as updateDoc};
