@@ -1,15 +1,26 @@
 import React, { useState, useEffect, useRef } from 'react';
 
 export default function DraggableRefresh() {
-  // Anclaje inicial: Lado izquierdo v3.0 (x: 15)
-  const [position, setPosition] = useState({ x: 15, y: 100 });
+  const [isDesktop, setIsDesktop] = useState(() => {
+    const isMobileUA = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    return !isMobileUA && window.innerWidth >= 768;
+  });
+  // Anclaje inicial: Lado izquierdo inferior al buscador
+  const [position, setPosition] = useState({ x: 12, y: 85 });
   const [isDragging, setIsDragging] = useState(false);
   const startPos = useRef({ x: 0, y: 0 });
   const pointerStart = useRef({ x: 0, y: 0 });
   const hasMoved = useRef(false);
 
+  // Recalcular posición al cargar para asegurar el anclaje inicial
+  useEffect(() => {
+    setPosition({ x: 12, y: 85 });
+  }, []);
+
   useEffect(() => {
     const handleResize = () => {
+      const isMobileUA = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+      setIsDesktop(!isMobileUA && window.innerWidth >= 768);
       setPosition(prev => ({
         x: Math.min(prev.x, window.innerWidth - 60),
         y: Math.min(prev.y, window.innerHeight - 60)
@@ -18,6 +29,8 @@ export default function DraggableRefresh() {
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
+
+  if (!isDesktop) return null;
 
   const handlePointerDown = (e) => {
     setIsDragging(true);
@@ -83,6 +96,7 @@ export default function DraggableRefresh() {
         if (hasMoved.current) {
           e.preventDefault();
         } else {
+          // Trigger the sync function if available or reload
           window.location.reload(true);
         }
       }}
@@ -90,19 +104,20 @@ export default function DraggableRefresh() {
         position: 'fixed',
         left: position.x + 'px',
         top: position.y + 'px',
-        background: 'rgba(255, 126, 179, 0.3)', 
-        borderRadius: '50%', 
-        color: '#FF758C', // Rosa oscuro distinto al rojo y al translúcido
-        width: '56px', 
-        height: '56px',
+        background: '#ff758c', 
+        borderRadius: '16px', 
+        color: '#fff', 
+        width: '50px', 
+        height: '50px',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        boxShadow: '0 2px 10px rgba(255, 126, 179, 0.15)',
+        boxShadow: '0 8px 25px rgba(255, 117, 140, 0.4)',
         cursor: isDragging ? 'grabbing' : 'grab',
         zIndex: 99999,
         userSelect: 'none',
-        touchAction: 'none' 
+        touchAction: 'none',
+        border: '2px solid rgba(255,255,255,0.2)'
       }}
     >
       <svg 
