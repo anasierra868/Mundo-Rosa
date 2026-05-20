@@ -1,7 +1,23 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
-function CartModal({ cart, isOpen, onClose, onSeparate, onClearCart, onRemoveItem, formatCurrency, cartTotal, priceType }) {
+function CartModal({ cart, isOpen, onClose, onSeparate, onClearCart, onRemoveItem, formatCurrency, cartTotal, priceType, onRevertSeparated }) {
   const [copiedType, setCopiedType] = useState(null); // 'separate' or 'final'
+
+  // v34.0: Ctrl+Z para revertir SEPARADO → NUEVO (rehabilitar COPIAR A WHATSAPP)
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e) => {
+      if (e.ctrlKey && e.key === 'z') {
+        e.preventDefault();
+        if (onRevertSeparated) {
+          onRevertSeparated();
+          setCopiedType(null);
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onRevertSeparated]);
 
   if (!isOpen) return null;
 
@@ -37,7 +53,15 @@ function CartModal({ cart, isOpen, onClose, onSeparate, onClearCart, onRemoveIte
             cart.map(item => (
               <div key={item.id} className="cart-item">
                 <div style={{ position: 'relative' }}>
-                  <img src={item.image} className="cart-item-img" alt={item.name} decoding="async" loading="lazy" />
+                  <img 
+                    src={
+                      (item.imageUrl || item.image || '').replace('http://137.184.198.49', 'https://137-184-198-49.sslip.io')
+                    } 
+                    className="cart-item-img" 
+                    alt={item.name} 
+                    decoding="async" 
+                    loading="lazy" 
+                  />
                   {item.isSeparated ? (
                     <span className="item-status-badge separated">SEPARADO ✅</span>
                   ) : (
@@ -78,8 +102,18 @@ function CartModal({ cart, isOpen, onClose, onSeparate, onClearCart, onRemoveIte
                 onClick={handleSeparate}
                 disabled={newItemsCount === 0}
               >
-                {copiedType === 'separate' ? '✅ ¡Copiado!' : `📂 Separar Nuevos (${newItemsCount})`}
+                {copiedType === 'separate' ? '✅ ¡Copiado!' : 'COPIAR A WHATSAPP'}
               </button>
+
+              {newItemsCount === 0 && cart.length > 0 && onRevertSeparated && (
+                <button 
+                  className="whatsapp-btn final-btn" 
+                  style={{ background: 'linear-gradient(135deg, #f59e0b, #d97706)' }} 
+                  onClick={() => { onRevertSeparated(); setCopiedType(null); }}
+                >
+                  🔄 Revertir
+                </button>
+              )}
 
               <button className="whatsapp-btn final-btn" style={{ background: 'linear-gradient(135deg, #ef4444, #b91c1c)' }} onClick={handleClear}>
                 🗑️ Limpiar Carrito

@@ -60,7 +60,7 @@ function ProductGrid({
 
   const scroll = (direction) => {
     if (scrollRef.current) {
-      const scrollAmount = direction === 'left' ? -250 : 250;
+      const scrollAmount = direction === 'left' ? -500 : 500;
       scrollRef.current.scrollBy({ left: scrollAmount, behavior: 'smooth' });
     }
   };
@@ -72,6 +72,11 @@ function ProductGrid({
     const categoriesDataMap = {};
 
     products.forEach(product => {
+      // v35.1 SAFETY SHIELD: Skip nulls or products without names to prevent white screen crash
+      if (!product || !product.name) return;
+      
+      // v35.0: Ocultar objetos internos de notas de clientes
+      if (product.isCustomerNote || product.name === '_NOTA_CLIENTE') return;
       let selectedCategory = null;
       let selectedIcon = ''; // SIGUE VACÍO: Solo aparecerá si tú pones un emoji manual
 
@@ -116,6 +121,27 @@ function ProductGrid({
       }
       groups[selectedCategory].push(product);
       categoriesSet.add(selectedCategory);
+
+      // 🎀 LÓGICA DE COLECCIONES ESPECIALES (Clonación Visual) 🎀
+      const isCapibara = product.name && product.name.toLowerCase().includes('capibara');
+      const capibaraCategoryName = "🎀♡COLECCIÓN CAPIBARA♡"; // Sin el último emoji (porque el código de arriba lo extrae como icono)
+      const capibaraIcon = "🎀";
+      
+      if (isCapibara && selectedCategory !== capibaraCategoryName) {
+        if (!groups[capibaraCategoryName]) {
+            groups[capibaraCategoryName] = [];
+            categoriesDataMap[capibaraCategoryName] = {
+                id: "coleccion-capibara-especial",
+                name: capibaraCategoryName,
+                icon: capibaraIcon
+            };
+        }
+        // Evitar duplicar si por alguna razón el producto ya entró a este grupo
+        if (!groups[capibaraCategoryName].some(p => p.id === product.id)) {
+            groups[capibaraCategoryName].push(product);
+            categoriesSet.add(capibaraCategoryName);
+        }
+      }
     });
 
     const sortedCategories = Array.from(categoriesSet).sort((a, b) =>
@@ -140,27 +166,32 @@ function ProductGrid({
   }, [products]);
 
   const scrollToCategory = (id) => {
-    const element = categoryRefs.current[id];
-    if (element) {
-      const offset = 140; // Espacio para el header y nav
-      const bodyRect = document.body.getBoundingClientRect().top;
-      const elementRect = element.getBoundingClientRect().top;
-      const elementPosition = elementRect - bodyRect;
-      const offsetPosition = elementPosition - offset;
+    const performScroll = () => {
+      const element = document.getElementById(id);
+      if (element) {
+        const headerOffset = 160; 
+        const elementPosition = element.getBoundingClientRect().top + window.pageYOffset;
+        const offsetPosition = elementPosition - headerOffset;
+   
+        window.scrollTo({
+          top: offsetPosition,
+          behavior: 'auto'
+        });
+      }
+    };
 
-      window.scrollTo({
-        top: offsetPosition,
-        behavior: 'smooth'
-      });
-    }
+    // v19.4: Técnica de "Doble Impacto" - Salta dos veces para asegurar posición final exacta
+    performScroll(); // Primer impacto (Despierta la sección)
+    setTimeout(performScroll, 50);  // Segundo impacto (Ajuste fino instantáneo)
+    setTimeout(performScroll, 250); // Tercer impacto (Por si acaso hubo carga de imágenes)
   };
 
-  if (isSyncing) {
+  // v22.6: Removed sync overlay as requested. UI is always visible.
+  if (isSyncing && products.length === 0) {
     return (
-      <div className="sync-overlay-main">
-        <div className="spinner"></div>
-        <h2>Sincronizando Catálogo...</h2>
-        <p>Estamos optimizando y guardando tus productos en la nube. Por favor espera un momento.</p>
+      <div style={{ textAlign: 'center', padding: '100px', color: '#FF7EB3' }}>
+        <div className="spinner-large" style={{ margin: '0 auto 20px' }}></div>
+        <h2 style={{ fontFamily: 'Outfit' }}>Abriendo Catálogo...</h2>
       </div>
     );
   }
@@ -187,46 +218,87 @@ function ProductGrid({
         <button className="nav-arrow right" onClick={() => scroll('right')}>›</button>
       </div>
 
-      {/* Renderizado de Secciones Dinámicas */}
-      {categoriesList.map(cat => {
-        const categoryProducts = groupedProducts[cat.name];
-        return (
-          <section 
-            key={cat.id} 
-            className="category-section"
-            ref={el => categoryRefs.current[cat.id] = el}
-          >
-            <div className="category-header">
-              {cat.icon && <span className="category-icon-bg">{cat.icon}</span>}
-              <div>
-                <h2>{cat.name}</h2>
-                <div className="category-line"></div>
-              </div>
-            </div>
-
-            <div className="catalog-grid">
-              {categoryProducts.map(product => {
-                const quantity = cart
-                  .filter(i => i.id === product.id)
-                  .reduce((acc, item) => acc + item.quantity, 0);
-                return (
-                  <ProductCard 
-                    key={product.id} 
-                    product={product}
-                    quantity={quantity}
-                    onAddToCart={onAddToCart}
-                    onRemoveOne={onRemoveOne}
-                    formatCurrency={formatCurrency}
-                    priceType={priceType}
-                  />
-                );
-              })}
-            </div>
-          </section>
-        );
-      })}
+      {/* Renderizado de Secciones Dinámicas con Lazy Loading v19.0 */}
+      {categoriesList.map(cat => (
+        <LazyCategorySection 
+          key={cat.id}
+          cat={cat}
+          categoryProducts={groupedProducts[cat.name]}
+          categoryRefs={categoryRefs}
+          cart={cart}
+          onAddToCart={onAddToCart}
+          onRemoveOne={onRemoveOne}
+          formatCurrency={formatCurrency}
+          priceType={priceType}
+        />
+      ))}
     </main>
   );
 }
+
+// v19.0: Componente de Sección Inteligente (Solo renderiza si es visible)
+const LazyCategorySection = ({ cat, categoryProducts, categoryRefs, cart, onAddToCart, onRemoveOne, formatCurrency, priceType }) => {
+  const [isVisible, setIsVisible] = React.useState(false);
+  const sectionRef = React.useRef(null);
+
+  React.useEffect(() => {
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setIsVisible(true);
+          observer.disconnect(); // Una vez visible, se queda visible
+        }
+      },
+      { rootMargin: '200px' } // Cargar un poco antes de llegar
+    );
+
+    if (sectionRef.current) observer.observe(sectionRef.current);
+    return () => observer.disconnect();
+  }, []);
+
+  return (
+    <section 
+      id={cat.id}
+      className="category-section"
+      ref={el => {
+        sectionRef.current = el;
+        categoryRefs.current[cat.id] = el;
+      }}
+    >
+      <div className="category-header">
+        {cat.icon && <span className="category-icon-bg">{cat.icon}</span>}
+        <div>
+          <h2>{cat.name}</h2>
+          <div className="category-line"></div>
+        </div>
+      </div>
+
+      <div className="catalog-grid">
+        {isVisible ? (
+          categoryProducts.map(product => {
+            const quantity = cart
+              .filter(i => i.id === product.id)
+              .reduce((acc, item) => acc + item.quantity, 0);
+            return (
+              <ProductCard 
+                key={product.id} 
+                product={product}
+                quantity={quantity}
+                onAddToCart={onAddToCart}
+                onRemoveOne={onRemoveOne}
+                formatCurrency={formatCurrency}
+                priceType={priceType}
+              />
+            );
+          })
+        ) : (
+          <div style={{ height: '200px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a3b8' }}>
+            Cargando productos... ⏳
+          </div>
+        )}
+      </div>
+    </section>
+  );
+};
 
 export default ProductGrid;

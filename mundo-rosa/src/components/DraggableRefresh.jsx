@@ -30,8 +30,6 @@ export default function DraggableRefresh() {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  if (!isDesktop) return null;
-
   const handlePointerDown = (e) => {
     setIsDragging(true);
     hasMoved.current = false;
@@ -86,6 +84,8 @@ export default function DraggableRefresh() {
       window.removeEventListener('touchend', handlePointerUp);
     };
   }, [isDragging]);
+
+  if (!isDesktop) return null;
 
   return (
     <div

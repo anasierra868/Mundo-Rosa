@@ -4,7 +4,16 @@ function ProductCard({ product, quantity, onAddToCart, onRemoveOne, formatCurren
   return (
     <div className="product-card">
       <div className="product-image-container">
-        <img src={product.image} alt={product.name} className="product-image" loading="lazy" />
+        <img 
+          src={
+            (product.imageUrl || product.image || '').replace('http://137.184.198.49', 'https://137-184-198-49.sslip.io')
+          } 
+          alt={product.name} 
+          className="product-image" 
+          loading="lazy" 
+          decoding="async"
+          onLoad={(e) => e.target.classList.add('loaded')} 
+        />
         {quantity > 0 && (
           <div className="product-qty-badge">{quantity}</div>
         )}
@@ -23,6 +32,7 @@ function ProductCard({ product, quantity, onAddToCart, onRemoveOne, formatCurren
           </div>
         </div>
 
+
         {quantity > 0 ? (
           <div className="qty-controls">
             <button className="qty-btn qty-minus" onClick={() => onRemoveOne(product.id)}>−</button>
@@ -31,7 +41,7 @@ function ProductCard({ product, quantity, onAddToCart, onRemoveOne, formatCurren
                 `${quantity} en pedido`
               ) : (
                 <>
-                  <div style={{ fontSize: '1rem', fontWeight: 'bold', opacity: 0.9 }}>{quantity} x</div>
+                  <div style={{ fontSize: '1.1rem', fontWeight: '900', color: '#065f46' }}>{quantity} x</div>
                   <div style={{ fontSize: '0.95rem', fontWeight: '800' }}>
                     {formatCurrency(quantity * (priceType === 'mayor' ? product.mayor : product.detal))}
                   </div>

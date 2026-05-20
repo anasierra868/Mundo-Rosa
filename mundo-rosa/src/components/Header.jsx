@@ -1,4 +1,4 @@
-function Header({ cartCount, onCartOpen, globalSearch, onSearchChange }) {
+function Header({ cartCount, onCartOpen, globalSearch, onSearchChange, onSync, isSyncing }) {
   return (
     <header>
       <div className="container">
@@ -23,6 +23,13 @@ function Header({ cartCount, onCartOpen, globalSearch, onSearchChange }) {
           </div>
 
           <div className="nav-actions">
+            <button 
+              className={`sync-btn desktop-sync-btn ${isSyncing ? 'syncing' : ''}`} 
+              onClick={onSync} 
+              title="Actualizar Catálogo"
+            >
+              🔄
+            </button>
             <button className="cart-icon" onClick={onCartOpen}>
               🛒 {cartCount > 0 && <span className="cart-count">{cartCount}</span>}
             </button>

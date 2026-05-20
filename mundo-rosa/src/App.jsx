@@ -9,7 +9,6 @@ import PricingModal from './components/PricingModal';
 import AdminPanel from './components/AdminPanel';
 import OrderQueue from './components/OrderQueue';
 import AuthModal from './components/AuthModal';
-import DraggableRefresh from './components/DraggableRefresh';
 
 import { 
   onOrdersUpdate, 
@@ -24,7 +23,56 @@ import {
 } from './utils/db';
 import { initPB } from './utils/pocketbase';
 
-const APP_VERSION = "68.0"; // DOMICILIOS FORZADOS v68.0
+const APP_VERSION = "72.0"; // INDEXEDDB FIX v72.0
+
+// Helper para IndexedDB (Caché sin límite de memoria)
+const idbCache = {
+  async get() {
+    return new Promise(resolve => {
+      const req = indexedDB.open('MundoRosaDB', 1);
+      req.onupgradeneeded = e => e.target.result.createObjectStore('cache');
+      req.onsuccess = e => {
+        const db = e.target.result;
+        if (!db.objectStoreNames.contains('cache')) return resolve(null);
+        const getReq = db.transaction('cache', 'readonly').objectStore('cache').get('catalog');
+        getReq.onsuccess = () => resolve(getReq.result || null);
+        getReq.onerror = () => resolve(null);
+      };
+      req.onerror = () => resolve(null);
+    });
+  },
+  async set(data) {
+    return new Promise(resolve => {
+      const req = indexedDB.open('MundoRosaDB', 1);
+      req.onupgradeneeded = e => e.target.result.createObjectStore('cache');
+      req.onsuccess = e => {
+        try {
+          const tx = e.target.result.transaction('cache', 'readwrite');
+          tx.objectStore('cache').put(JSON.stringify(data), 'catalog');
+          tx.oncomplete = () => resolve(true);
+          tx.onerror = () => resolve(false);
+        } catch(err) {
+          resolve(false);
+        }
+      };
+      req.onerror = () => resolve(false);
+    });
+  },
+  async clear() {
+    return new Promise(resolve => {
+      const req = indexedDB.open('MundoRosaDB', 1);
+      req.onupgradeneeded = e => e.target.result.createObjectStore('cache');
+      req.onsuccess = e => {
+        const db = e.target.result;
+        if (!db.objectStoreNames.contains('cache')) return resolve();
+        const tx = db.transaction('cache', 'readwrite');
+        tx.objectStore('cache').clear();
+        tx.oncomplete = () => resolve();
+      };
+      req.onerror = () => resolve();
+    });
+  }
+};
 
 function App() {
   const [products, setProducts] = useState([]);
@@ -71,6 +119,7 @@ function App() {
     if (savedVersion !== APP_VERSION) {
         console.log(`🧹 Limpieza de versión antigua (${savedVersion || '0'}) detectada. Forzando descarga completa...`);
         localStorage.removeItem('MUNDOROSA_CATALOG_CACHE');
+        idbCache.clear();
         localStorage.removeItem('MUNDOROSA_CATALOG_TS');
         localStorage.setItem('MUNDOROSA_APP_VERSION', APP_VERSION);
     }
@@ -85,11 +134,11 @@ function App() {
 
   const fetchCatalog = async (force = false) => {
     // v26.0: INSTANT LOAD — Mostrar caché local primero, sincronizar en segundo plano
-    const localCache = localStorage.getItem('MUNDOROSA_CATALOG_CACHE');
+    const localCache = (await idbCache.get()) || localStorage.getItem('MUNDOROSA_CATALOG_CACHE');
     
     if (!force && localCache) {
       try {
-        const cached = JSON.parse(localCache);
+        const cached = typeof localCache === 'string' ? JSON.parse(localCache) : localCache;
         if (Array.isArray(cached) && cached.length > 0) {
           console.log(`⚡ Catálogo local cargado (${cached.length} productos). Sincronizando en segundo plano...`);
           setProducts(sortProducts(cached));
@@ -109,7 +158,7 @@ function App() {
           console.log("☁️ Sincronización Delta activa...");
           const delta = await loadProductsDelta(lastTS);
           
-          const cached = JSON.parse(localCache);
+          const cached = typeof localCache === 'string' ? JSON.parse(localCache) : localCache;
           let merged = [...cached];
 
           if (delta.length > 0) {
@@ -146,7 +195,7 @@ function App() {
 
         const sorted = sortProducts(cleanList);
         setProducts(sorted);        
-        localStorage.setItem('MUNDOROSA_CATALOG_CACHE', JSON.stringify(sorted));
+        idbCache.set(sorted);
         
         // Actualizar el timestamp con el más reciente del catálogo
         const newest = list.reduce((max, p) => (p.updated > max ? p.updated : max), '2024-01-01');
@@ -198,7 +247,7 @@ function App() {
                     }
                     
                     const sorted = sortProducts(Object.values(uniqueMap));
-                    localStorage.setItem('MUNDOROSA_CATALOG_CACHE', JSON.stringify(sorted));
+                    idbCache.set(sorted);
                     return sorted;
                 });
             });
@@ -502,8 +551,7 @@ function App() {
           </Suspense>
         )}
         
-        {/* Botón Flotante Dinámico Original (Rosado y Arrastrable) */}
-        <DraggableRefresh />
+
 
         {/* Flecha Flotante Estática para ir ARRIBA (SOLO PC - IZQUIERDA) */}
         <button 
