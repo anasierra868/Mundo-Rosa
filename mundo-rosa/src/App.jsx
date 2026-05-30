@@ -1,4 +1,4 @@
-import React, { useState, useEffect, Suspense } from 'react';
+import React, { useState, useEffect, useRef, Suspense } from 'react';
 
 // Components
 import Header from './components/Header';
@@ -23,7 +23,7 @@ import {
 } from './utils/db';
 import { initPB } from './utils/pocketbase';
 
-const APP_VERSION = "72.0"; // INDEXEDDB FIX v72.0
+const APP_VERSION = "76.0"; // AGOTADOS AUTHENTICATED PRICE RESOLUTION v76.0
 
 // Helper para IndexedDB (Caché sin límite de memoria)
 const idbCache = {
@@ -108,6 +108,7 @@ function App() {
   const [orders, setOrders] = useState([]);
   const [allPayments, setAllPayments] = useState([]);
   const [isSynced, setIsSynced] = useState(false); // v35.1: Monitor de sincronización
+  const isSyncedRef = useRef(false); // v72.1: Refleja isSynced para closures del heartbeat
 
   useEffect(() => {
     initPB();
@@ -215,6 +216,11 @@ function App() {
     let unsubscribeMetadata;
     let unsubscribeLive;
 
+    const markUnsynced = () => {
+        isSyncedRef.current = false;
+        setIsSynced(false);
+    };
+
     const startSync = async () => {
         // v52.0: LIMPIEZA DE HILOS ANTES DE RECONECTAR
         if (unsubscribeMetadata) { try { unsubscribeMetadata(); } catch(e){} }
@@ -222,7 +228,9 @@ function App() {
 
         try {
             await initPB();
+            isSyncedRef.current = true;
             setIsSynced(true);
+            fetchCatalog(false).catch(() => {});
 
             unsubscribeMetadata = onCatalogMetadataUpdate((meta) => {
                 const cloudTS = meta?.lastUpdate || '0';
@@ -253,15 +261,22 @@ function App() {
             });
         } catch (err) {
             console.error("❌ Error de sincronización:", err);
-            setIsSynced(false);
+            markUnsynced();
         }
     };
+
+    // v72.1: Detectar pérdida de conexión a nivel SSE para que el heartbeat tenga motivo legítimo de reintentar
+    const onConnectionLost = () => {
+        console.warn("🔌 Conexión SSE perdida — marcando como desconectado.");
+        markUnsynced();
+    };
+    window.addEventListener('offline', onConnectionLost);
 
     startSync();
 
     const heartbeat = setInterval(() => {
-        // v52.0: Solo reintenta si realmente se perdió la conexión
-        if (!isSynced) {
+        // v72.1: Lee del ref para evitar la closure obsoleta del useEffect inicial
+        if (!isSyncedRef.current) {
             console.log("💓 Heartbeat: Reintentando conexión...");
             startSync();
         }
@@ -271,6 +286,7 @@ function App() {
         if (unsubscribeMetadata) unsubscribeMetadata();
         if (unsubscribeLive) unsubscribeLive();
         clearInterval(heartbeat);
+        window.removeEventListener('offline', onConnectionLost);
     };
   }, []);
 
@@ -280,20 +296,37 @@ function App() {
 
     console.log("🔐 Autenticación detectada: Iniciando descarga de datos administrativos...");
 
-    const unsubscribeOrders = onOrdersUpdate((liveOrders) => {
-        const active = liveOrders.filter(o => {
-            const isBuried = o.customerId && o.customerId.startsWith('ELM_');
-            const isCancelled = o.status === 'cancelled';
-            return !isBuried && !isCancelled;
-        });
-        setOrders(active);
-    });
+    let unsubscribeOrders;
+    let unsubscribePayments;
+    let cancelled = false;
 
-    const unsubscribePayments = onAllPaymentsUpdate((livePayments) => {
-        setAllPayments(livePayments);
-    });
+    const loadAdminData = async () => {
+        try {
+            // v73.0: Garantizar autenticación ANTES de pedir datos administrativos
+            await initPB();
+            if (cancelled) return;
+
+            unsubscribeOrders = onOrdersUpdate((liveOrders) => {
+                const active = liveOrders.filter(o => {
+                    const isBuried = o.customerId && o.customerId.startsWith('ELM_');
+                    const isCancelled = o.status === 'cancelled';
+                    return !isBuried && !isCancelled;
+                });
+                setOrders(active);
+            });
+
+            unsubscribePayments = onAllPaymentsUpdate((livePayments) => {
+                setAllPayments(livePayments);
+            });
+        } catch (err) {
+            console.error("❌ Error cargando datos administrativos:", err);
+        }
+    };
+
+    loadAdminData();
 
     return () => {
+        cancelled = true;
         if (unsubscribeOrders) unsubscribeOrders();
         if (unsubscribePayments) unsubscribePayments();
     };
@@ -454,7 +487,7 @@ function App() {
           isConfigured={true}
           globalSearch={globalSearch}
           onSearchChange={setGlobalSearch}
-          onSync={() => fetchCatalog(true)}
+          onSync={() => fetchCatalog(false)}
           isSyncing={isSyncing}
         />
         <Hero />

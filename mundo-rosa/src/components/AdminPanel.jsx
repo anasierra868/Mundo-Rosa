@@ -10,20 +10,24 @@ import html2canvas from 'html2canvas';
 
 // Sub-component for individual product rows to prevent full table re-renders v16.7
 const AdminProductRow = memo(({ product, onEdit, onDelete }) => {
+  const isInfinite = (val) => val === null || val === undefined || val === -1 || String(val).trim() === '' || String(val).toLowerCase() === 'infinito' || String(val).toLowerCase() === 'infinity' || String(val) === '♾️' || String(val) === '-1';
+
   const [localName, setLocalName] = useState(product.name);
   const [localCategory, setLocalCategory] = useState(product.category || 'Otros 🎁');
   const [localMayor, setLocalMayor] = useState(product.mayor);
   const [localDetal, setLocalDetal] = useState(product.detal);
-  const [localStock, setLocalStock] = useState(product.stock || 0);
-  const [localLocation, setLocalLocation] = useState(product.sku || '');
+  const [localStock, setLocalStock] = useState(isInfinite(product.stock) ? '' : product.stock);
+  const [localSKU, setLocalSKU] = useState(product.sku || '');
+  const [localLocation, setLocalLocation] = useState(product.location || '');
 
   // Sync if external name changes (like search or mass import)
   useEffect(() => { setLocalName(product.name); }, [product.name]);
   useEffect(() => { setLocalCategory(product.category || 'Otros 🎁'); }, [product.category]);
   useEffect(() => { setLocalMayor(product.mayor); }, [product.mayor]);
   useEffect(() => { setLocalDetal(product.detal); }, [product.detal]);
-  useEffect(() => { setLocalStock(product.stock || 0); }, [product.stock]);
-  useEffect(() => { setLocalLocation(product.sku || ''); }, [product.sku]);
+  useEffect(() => { setLocalStock(isInfinite(product.stock) ? '' : product.stock); }, [product.stock]);
+  useEffect(() => { setLocalSKU(product.sku || ''); }, [product.sku]);
+  useEffect(() => { setLocalLocation(product.location || ''); }, [product.location]);
 
   return (
     <tr>
@@ -31,54 +35,80 @@ const AdminProductRow = memo(({ product, onEdit, onDelete }) => {
       <td>
         <input 
           type="text" 
+          value={localSKU} 
+          placeholder="MR-XXXX"
+          style={{ width: '80px', textAlign: 'center' }}
+          onChange={e => setLocalSKU(e.target.value)}
+          onBlur={e => {
+            if (e.target.value !== (product.sku || '')) onEdit(product.id, 'sku', e.target.value);
+          }}
+          onKeyDown={e => { if (e.key === 'Enter') e.target.blur(); }}
+        />
+      </td>
+      <td>
+        <input 
+          type="text" 
           value={localName} 
-          onChange={e => {
-            setLocalName(e.target.value);
-            onEdit(product.id, 'name', e.target.value);
-          }} 
+          onChange={e => setLocalName(e.target.value)}
+          onBlur={e => {
+            if (e.target.value !== (product.name || '')) onEdit(product.id, 'name', e.target.value);
+          }}
+          onKeyDown={e => { if (e.key === 'Enter') e.target.blur(); }}
         />
       </td>
       <td>
         <input 
           type="text" 
           value={localCategory} 
-          onChange={e => {
-            setLocalCategory(e.target.value);
-            onEdit(product.id, 'category', e.target.value);
-          }} 
+          onChange={e => setLocalCategory(e.target.value)}
+          onBlur={e => {
+            if (e.target.value !== (product.category || 'Otros 🎁')) onEdit(product.id, 'category', e.target.value);
+          }}
+          onKeyDown={e => { if (e.key === 'Enter') e.target.blur(); }}
         />
       </td>
       <td>
         <input 
           type="number" 
           value={localMayor} 
-          onChange={e => {
-            setLocalMayor(e.target.value);
-            onEdit(product.id, 'mayor', e.target.value);
-          }} 
+          onChange={e => setLocalMayor(e.target.value)}
+          onBlur={e => {
+            if (e.target.value !== String(product.mayor || '')) onEdit(product.id, 'mayor', e.target.value);
+          }}
+          onKeyDown={e => { if (e.key === 'Enter') e.target.blur(); }}
         />
       </td>
       <td>
         <input 
           type="number" 
           value={localDetal} 
-          onChange={e => {
-            setLocalDetal(e.target.value);
-            onEdit(product.id, 'detal', e.target.value);
-          }} 
+          onChange={e => setLocalDetal(e.target.value)}
+          onBlur={e => {
+            if (e.target.value !== String(product.detal || '')) onEdit(product.id, 'detal', e.target.value);
+          }}
+          onKeyDown={e => { if (e.key === 'Enter') e.target.blur(); }}
         />
       </td>
       <td>
         <input 
-          type="number" 
-          value={localStock} 
-          placeholder="0"
-          style={{ width: '60px', textAlign: 'center' }}
+          type="text" 
+          value={localStock === '' ? '♾️' : localStock} 
+          placeholder="♾️"
+          style={{ width: '60px', textAlign: 'center', fontWeight: localStock === '' ? 'bold' : 'normal', fontSize: localStock === '' ? '1.1rem' : '1rem' }}
           onChange={e => {
-            const val = parseInt(e.target.value) || 0;
-            setLocalStock(val);
-            onEdit(product.id, 'stock', val);
-          }} 
+            const rawVal = e.target.value;
+            if (rawVal.trim() === '' || rawVal === '♾️' || rawVal.toLowerCase() === 'infinito' || rawVal.toLowerCase() === 'infinity') {
+              setLocalStock('');
+            } else {
+              setLocalStock(rawVal.replace(/[^0-9]/g, ''));
+            }
+          }}
+          onBlur={() => {
+            const finalVal = isInfinite(localStock) ? '' : parseInt(localStock);
+            const currentVal = isInfinite(product.stock) ? '' : parseInt(product.stock);
+            if (finalVal !== currentVal) onEdit(product.id, 'stock', finalVal);
+          }}
+          onKeyDown={e => { if (e.key === 'Enter') e.target.blur(); }}
         />
       </td>
       <td>
@@ -87,10 +117,11 @@ const AdminProductRow = memo(({ product, onEdit, onDelete }) => {
           value={localLocation} 
           placeholder="---"
           style={{ width: '80px', textAlign: 'center' }}
-          onChange={e => {
-            setLocalLocation(e.target.value);
-            onEdit(product.id, 'sku', e.target.value);
-          }} 
+          onChange={e => setLocalLocation(e.target.value)}
+          onBlur={e => {
+            if (e.target.value !== (product.location || '')) onEdit(product.id, 'location', e.target.value);
+          }}
+          onKeyDown={e => { if (e.key === 'Enter') e.target.blur(); }}
         />
       </td>
       <td>
@@ -98,6 +129,15 @@ const AdminProductRow = memo(({ product, onEdit, onDelete }) => {
       </td>
     </tr>
   );
+}, (prevProps, nextProps) => {
+  return prevProps.product.id === nextProps.product.id &&
+         prevProps.product.name === nextProps.product.name &&
+         prevProps.product.category === nextProps.product.category &&
+         prevProps.product.mayor === nextProps.product.mayor &&
+         prevProps.product.detal === nextProps.product.detal &&
+         prevProps.product.stock === nextProps.product.stock &&
+         prevProps.product.sku === nextProps.product.sku &&
+         prevProps.product.location === nextProps.product.location;
 });
 
 const AdminPanel = ({ isOpen, onClose, currentCatalog, onUpdateCatalog, onSyncingStatus, orders, allPayments }) => {
@@ -107,6 +147,7 @@ const AdminPanel = ({ isOpen, onClose, currentCatalog, onUpdateCatalog, onSyncin
   const [progress, setProgress] = useState('');
   const [showAddForm, setShowAddForm] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedLocation, setSelectedLocation] = useState('');
   const [showVerify, setShowVerify] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
   const [importData, setImportData] = useState(null);
@@ -122,6 +163,7 @@ const AdminPanel = ({ isOpen, onClose, currentCatalog, onUpdateCatalog, onSyncin
   const [customerSearchQuery, setCustomerSearchQuery] = useState('');
   const [selectedCustomerId, setSelectedCustomerId] = useState(null);
   const [localCheckedMap, setLocalCheckedMap] = useState({});
+  const stableProductIdsRef = useRef([]);
 
 
   // Derive active customers in real-time from orders prop v15.6
@@ -197,18 +239,81 @@ const AdminPanel = ({ isOpen, onClose, currentCatalog, onUpdateCatalog, onSyncin
     });
   }, [allPayments, abonosSearchTerm, localCheckedMap]);
 
+  // uniqueLocations computed alphabetically
+  const uniqueLocations = useMemo(() => {
+    if (!products) return [];
+    const locs = products
+      .map(p => (p.location || '').trim())
+      .filter(loc => loc !== '' && loc !== '---');
+    return [...new Set(locs)].sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
+  }, [products]);
+
   // STABLE SORT v16.7: Only re-sort if total length changes or search changes.
   // This prevents jumping while the user edits a specific product's name.
   const displayProducts = useMemo(() => {
     const term = searchTerm.toLowerCase();
-    const filtered = products.filter(p => 
-      (p.name || "").toLowerCase().includes(term) || 
-      (p.category || "").toLowerCase().includes(term)
-    );
-    return [...filtered].sort((a, b) => 
-      (a.name || "").localeCompare((b.name || ""), 'es', { numeric: true, sensitivity: 'base' })
-    );
-  }, [products.length, searchTerm]);
+    const filtered = products.filter(p => {
+      const matchesSearch = (p.name || "").toLowerCase().includes(term) ||
+                            (p.category || "").toLowerCase().includes(term);
+      const matchesLocation = !selectedLocation || (p.location || "").trim() === selectedLocation;
+      return matchesSearch && matchesLocation;
+    });
+
+    // Deduplicar por SKU: si varios productos comparten SKU (mismo producto en varias categorías),
+    // mostrar una sola fila con las categorías concatenadas.
+    const skuMap = new Map();
+    const skuCounts = {};
+    for (const p of filtered) {
+      const sku = (p.sku || '').trim();
+      const key = sku && /^MR-\d+$/i.test(sku) ? sku : p.id;
+      if (!skuMap.has(key)) {
+        skuMap.set(key, { ...p, _categories: [p.category].filter(Boolean), _ids: [p.id] });
+        skuCounts[key] = 1;
+      } else {
+        const existing = skuMap.get(key);
+        existing._ids.push(p.id);
+        if (p.category && !existing._categories.includes(p.category)) {
+          existing._categories.push(p.category);
+        }
+        skuCounts[key]++;
+      }
+    }
+
+    // Log de diagnóstico
+    const merged = Object.entries(skuCounts).filter(([, c]) => c > 1);
+    if (merged.length > 0) {
+      console.log(`🔗 Deduplicación SKU: ${merged.length} productos fusionados:`, merged.map(([k]) => k));
+    }
+    console.log(`📦 Inventario: ${filtered.length} registros → ${skuMap.size} filas (${filtered.length - skuMap.size} duplicados fusionados)`);
+
+    const deduped = Array.from(skuMap.values()).map(p => ({
+      ...p,
+      category: p._categories.join(' / ')
+    }));
+
+    // STABLE ORDER SHIELD: Only sort alphabetically by name if the set of IDs (keys) has changed.
+    // Otherwise, we keep the previous sorting order to prevent focus loss and jumping during edit.
+    const currentKeys = deduped.map(p => p.id);
+    const prevKeys = stableProductIdsRef.current;
+    
+    let isSameSet = false;
+    if (prevKeys.length === currentKeys.length) {
+      const prevSet = new Set(prevKeys);
+      isSameSet = currentKeys.every(k => prevSet.has(k));
+    }
+
+    if (isSameSet) {
+      const keyToIndex = new Map(prevKeys.map((k, idx) => [k, idx]));
+      deduped.sort((a, b) => keyToIndex.get(a.id) - keyToIndex.get(b.id));
+    } else {
+      deduped.sort((a, b) =>
+        (a.name || "").localeCompare((b.name || ""), 'es', { numeric: true, sensitivity: 'base' })
+      );
+      stableProductIdsRef.current = deduped.map(p => p.id);
+    }
+
+    return deduped;
+  }, [products, searchTerm, selectedLocation]);
 
   const [newImage, setNewImage] = useState(null);
   const [newCategory, setNewCategory] = useState('Nuevos 🎁');
@@ -282,18 +387,15 @@ const AdminPanel = ({ isOpen, onClose, currentCatalog, onUpdateCatalog, onSyncin
     }
   }, [isOpen]);
 
-  // v28.0: SAFE SYNC SHIELD — Solo cargar el catálogo al abrir para evitar que la sincronización delta borre ediciones en curso
+  // v74.2: REAL-TIME INVENTORY SYNC — Sincroniza el inventario local con los cambios en tiempo real del servidor
+  // Esto asegura que si otro asesor hace un separado o cambia stock, la tabla se actualice al instante sin recargar
   useEffect(() => {
     if (isOpen) {
-      // Si ya tenemos productos y estamos editando, no sobrescribir desde afuera
-      if (products.length === 0) {
-        setProducts(sortProducts(currentCatalog));
-      }
+      setProducts(sortProducts(currentCatalog));
     } else {
-      // Limpiar al cerrar para forzar recarga fresca la próxima vez
       setProducts([]);
     }
-  }, [isOpen]); // Quitamos currentCatalog de las dependencias para evitar race conditions
+  }, [isOpen, currentCatalog]);
 
   // Real-time Domicilios Sync v1.0
   useEffect(() => {
@@ -448,23 +550,57 @@ const AdminPanel = ({ isOpen, onClose, currentCatalog, onUpdateCatalog, onSyncin
 
     if (onSyncingStatus) onSyncingStatus(true);
     setIsProcessing(true);
-    setProgress('⬆️ Subiendo imagen al servidor...');
+    setProgress('🗜️ Comprimiendo imagen...');
+
+    // 0. COMPRIMIR IMAGEN ANTES DE SUBIR — previene ClientResponseError 0 por archivos pesados
+    let compressedImageBase64 = null;
+    try {
+      const rawBase64 = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(newImage);
+      });
+      compressedImageBase64 = await compressImage(rawBase64, 800, 0.72);
+    } catch (compressErr) {
+      console.warn('⚠️ No se pudo comprimir la imagen, intentando subir sin comprimir:', compressErr);
+    }
     
-    // 0. Verificar duplicados y referenciar automáticamente
-    const exists = products.some(p => p.name.trim().toLowerCase() === newName.trim().toLowerCase());
+    setProgress('⬆️ Subiendo imagen al servidor...');
+
+    // 1. Verificar duplicados y referenciar automáticamente (solo dentro de la misma categoría)
+    const exists = products.some(p => 
+      p.name.trim().toLowerCase() === newName.trim().toLowerCase() && 
+      (p.category || '').trim().toLowerCase() === finalCategory.trim().toLowerCase()
+    );
     let finalName = newName;
     if (exists) {
         const randomRef = 'Ref. ' + Math.random().toString(36).substring(2, 5).toUpperCase();
         finalName = `${newName.trim()} ${randomRef}`;
     }
 
+    // Auto-asignar el siguiente SKU secuencial MR-XXXX
+    const maxSku = products.reduce((max, p) => {
+      const match = (p.sku || '').match(/^MR-(\d+)$/i);
+      if (match) {
+        const num = parseInt(match[1], 10);
+        return num > max ? num : max;
+      }
+      return max;
+    }, 0);
+    const autoSku = `MR-${String(maxSku + 1).padStart(4, '0')}`;
+
+    // Si la compresión fue exitosa usamos base64; si no, mandamos el File original
     const p = {
       name: finalName,
       mayor: parseInt(newMayor) || 0,
       detal: parseInt(newDetal) || 0,
-      stock: parseInt(newStock) || 0,
-      sku: newLocation,
-      imageFile: newImage,   // Archivo real → se sube al campo 'img' de PocketBase
+      stock: (newStock === '' || newStock === null || newStock === undefined) ? -1 : (parseInt(newStock) >= 0 ? parseInt(newStock) : -1),
+      sku: autoSku,
+      location: newLocation,
+      ...(compressedImageBase64
+        ? { image: compressedImageBase64 }   // Base64 comprimido → saveProduct lo convierte a Blob WebP
+        : { imageFile: newImage }),           // Fallback: File original sin comprimir
       tags: '',
       category: finalCategory || 'Nuevos 🎁'
     };
@@ -533,21 +669,35 @@ const AdminPanel = ({ isOpen, onClose, currentCatalog, onUpdateCatalog, onSyncin
   const [saveTimeout, setSaveTimeout] = useState(null);
 
   const handleEdit = (id, field, value) => {
-    // 1. Actualización visual instantánea
+    // 1. Encontrar el producto que se está editando para obtener su SKU
+    const targetProduct = products.find(p => p.id === id);
+    const skuVal = (targetProduct?.sku || '').trim();
+    const hasValidSku = skuVal && /^MR-\d+$/i.test(skuVal);
+    const shouldSyncClones = hasValidSku && field !== 'category' && field !== 'sku' && field !== 'id';
+
+    // 2. Actualización visual instantánea (incluyendo clones si aplica)
     const updated = products.map(p => {
-      if (p.id === id) {
-        const val = (field === 'mayor' || field === 'detal' || field === 'stock') ? (parseInt(value) || 0) : value;
+      const isTarget = p.id === id || (shouldSyncClones && (p.sku || '').trim() === skuVal);
+      if (isTarget) {
+        let val;
+        if (field === 'mayor' || field === 'detal') {
+          val = parseInt(value) || 0;
+        } else if (field === 'stock') {
+          val = (value === null || value === undefined || String(value).trim() === '' || String(value).toLowerCase() === 'infinito' || String(value).toLowerCase() === 'infinity' || String(value) === '♾️' || String(value) === '-1') ? -1 : (parseInt(value) >= 0 ? parseInt(value) : -1);
+        } else {
+          val = value;
+        }
         return { ...p, [field]: val };
       }
       return p;
     });
     setProducts(updated);
     
-    // 1.1 PERSISTENCIA INMEDIATA EN CACHÉ (v28.0)
+    // 2.1 PERSISTENCIA INMEDIATA EN CACHÉ (v28.0)
     // Esto asegura que si el usuario busca o refresca, el cambio no se pierda
     localStorage.setItem('MUNDOROSA_CATALOG_CACHE', JSON.stringify(updated));
 
-    // 2. Guardado en Google con Retraso (Debounce)
+    // 3. Guardado en Google con Retraso (Debounce)
     if (saveTimeout) clearTimeout(saveTimeout);
     
     const newTimeout = setTimeout(async () => {
@@ -556,17 +706,32 @@ const AdminPanel = ({ isOpen, onClose, currentCatalog, onUpdateCatalog, onSyncin
             const success = await saveProduct(productToSave);
             if (success) {
                 console.log("☁️ Guardado automático sincronizado");
-                // 3. ACTUALIZACIÓN CRÍTICA DE CACHÉ LOCAL v28.0
+                // 4. ACTUALIZACIÓN CRÍTICA DE CACHÉ LOCAL v73.0
                 // Esto evita que al recargar la página se pierdan los cambios antes del delta sync
                 try {
                     const cached = localStorage.getItem('MUNDOROSA_CATALOG_CACHE');
                     if (cached) {
                         const list = JSON.parse(cached);
-                        const idx = list.findIndex(p => p.id === id);
-                        if (idx !== -1) {
-                            list[idx] = { ...list[idx], ...productToSave };
-                            localStorage.setItem('MUNDOROSA_CATALOG_CACHE', JSON.stringify(list));
-                        }
+                        const targetSku = (productToSave.sku || '').trim();
+                        const hasSku = targetSku && /^MR-\d+$/i.test(targetSku);
+                        const shouldSync = hasSku && field !== 'category' && field !== 'sku' && field !== 'id';
+                        
+                        const updatedList = list.map(p => {
+                            const isMatch = p.id === id || (shouldSync && (p.sku || '').trim() === targetSku);
+                            if (isMatch) {
+                                const syncData = {
+                                    ...p,
+                                    [field]: productToSave[field]
+                                };
+                                if (success.img && field === 'image') {
+                                    const finalImg = `${pb.baseUrl}/api/files/${success.collectionId}/${success.id}/${success.img}`;
+                                    syncData.image = finalImg;
+                                }
+                                return syncData;
+                            }
+                            return p;
+                        });
+                        localStorage.setItem('MUNDOROSA_CATALOG_CACHE', JSON.stringify(updatedList));
                     }
                 } catch (e) { console.warn("Error actualizando cache local:", e); }
             }
@@ -663,7 +828,7 @@ const AdminPanel = ({ isOpen, onClose, currentCatalog, onUpdateCatalog, onSyncin
         'CATEGORÍA': p.category || '',
         'PRECIO MAYOR': parseInt(p.mayor) || 0,
         'PRECIO DETAL': parseInt(p.detal) || 0,
-        'STOCK ACTUAL': (p.stock === null || p.stock === undefined || String(p.stock).trim() === '' || String(p.stock).toLowerCase() === 'infinito' || String(p.stock).toLowerCase() === 'infinity' || String(p.stock) === '♾️') ? '' : p.stock,
+        'STOCK ACTUAL': (p.stock === null || p.stock === undefined || p.stock === -1 || String(p.stock).trim() === '' || String(p.stock).toLowerCase() === 'infinito' || String(p.stock).toLowerCase() === 'infinity' || String(p.stock) === '♾️' || String(p.stock) === '-1') ? '' : p.stock,
         'UBICACIÓN': p.location || p.ubicacion || ''
     }));
 
@@ -863,7 +1028,6 @@ const AdminPanel = ({ isOpen, onClose, currentCatalog, onUpdateCatalog, onSyncin
         type: isWholesale ? 'Por Mayor' : 'Al Detal',
         total: results.reduce((acc, curr) => acc + curr.subtotal, 0)
     });
-    setAbono(''); // Reiniciar abono
     setPaymentDate(new Date().toISOString().split('T')[0]); // Reiniciar fecha a hoy
   };
 
@@ -1521,7 +1685,7 @@ const AdminPanel = ({ isOpen, onClose, currentCatalog, onUpdateCatalog, onSyncin
             </div>
             <div style={{ display: 'flex', gap: '10px' }}>
               <input type="number" placeholder="Stock Inicial" value={newStock} onChange={e => setNewStock(e.target.value)} />
-              <input type="text" placeholder="Ubicación (Pasillo, estante...)" value={newLocation} onChange={e => setNewLocation(e.target.value)} />
+              <input type="text" placeholder="📍 Ubicación (Pasillo, estante...)" value={newLocation} onChange={e => setNewLocation(e.target.value)} />
             </div>
             
             {/* Selector de imagen con vista previa */}
@@ -1821,13 +1985,27 @@ const AdminPanel = ({ isOpen, onClose, currentCatalog, onUpdateCatalog, onSyncin
           </section>
         )}
         
-        <div className="admin-search-bar">
+        <div className="admin-search-bar" style={{ display: 'flex', gap: '12px', alignItems: 'center', width: '100%', flexWrap: 'wrap' }}>
           <input 
             type="text" 
             placeholder="🔍 Buscar producto por nombre para editar o eliminar..." 
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
+            style={{ flex: 1, minWidth: '280px' }}
           />
+          <select
+            value={selectedLocation}
+            onChange={(e) => setSelectedLocation(e.target.value)}
+            className="admin-location-select"
+            style={{ minWidth: '220px', height: '52px' }}
+          >
+            <option value="" style={{ background: '#0f172a', color: '#fff' }}>📍 Todas las ubicaciones</option>
+            {uniqueLocations.map(loc => (
+              <option key={loc} value={loc} style={{ background: '#0f172a', color: '#fff' }}>
+                📍 {loc}
+              </option>
+            ))}
+          </select>
         </div>
 
         <div className="admin-table-container">
@@ -1835,6 +2013,7 @@ const AdminPanel = ({ isOpen, onClose, currentCatalog, onUpdateCatalog, onSyncin
             <thead>
               <tr>
                 <th>Imagen</th>
+                <th>ID (SKU)</th>
                 <th>Nombre</th>
                 <th>Categoría (IA)</th>
                 <th>P. Mayor</th>
