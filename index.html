@@ -1,6 +1,12 @@
 <!doctype html>
 <html lang="en">
   <head>
+<script>
+  window.addEventListener('error', function(e) {
+    document.body.innerHTML = '<div style="color:red; font-size:24px; padding:20px; font-weight:bold; font-family:sans-serif;">ERROR: ' + e.message + '</div>';
+  });
+</script>
+
     <meta charset="UTF-8" />
     <script>
       if (window.location.hostname.includes("github.io")) {
